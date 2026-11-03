@@ -507,7 +507,7 @@ final class EnvVarStore: ObservableObject {
                 return String(format: AppLocalized("The text is too long to save (%lld KB). The limit is 32 KB."),
                               Int64((bytes + 1023) / 1024))
             case .storageFailed:
-                return AppLocalized("Minis could not save the variable to the Keychain. Try again after unlocking your device.")
+                return AppLocalized("Rovie could not save the variable to the Keychain. Try again after unlocking your device.")
             }
         }
     }
@@ -535,7 +535,7 @@ final class EnvVarStore: ObservableObject {
             logger.info("[ShortcutEnvVar] updated \(key) (\(bytes) bytes)")
             return (key, false)
         }
-        let entry = EnvVarEntry(key: key, note: AppLocalized("Saved by the Shortcuts action “Save Environment Variable to Minis”."))
+        let entry = EnvVarEntry(key: key, note: AppLocalized("Saved by the Shortcuts action “Save Environment Variable to Rovie”."))
         entries.append(entry)
         saveEntries()
         markEntryDirty(entryId: entry.id, operation: "upsert")

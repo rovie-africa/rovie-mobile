@@ -538,7 +538,7 @@ struct SoulMetadata: Equatable {
     var displayEmoji: String { "✨" }
 
     static let `default` = SoulMetadata(
-        name: "Minis",
+        name: "Rovie",
         // Default emoji is intentionally empty — the UI uses the fixed
         // `displayEmoji` sparkle and serialize() no longer writes the
         // `emoji:` line. Kept on the struct only so the parser can
@@ -872,7 +872,7 @@ enum SoulStore {
     /// style / lang) is seeded.
     static let defaultContent: String = """
     ---
-    name: "Minis"
+    name: "Rovie"
     style: ""
     lang: "auto"
     ---
@@ -880,17 +880,18 @@ enum SoulStore {
     """
 
     /// Create SOUL.md with default content if it does not already exist.
-    /// Safe to call on every launch — never overwrites existing content.
+    /// Safe to call on every launch — migrates legacy default "Minis" to "Rovie".
     static func ensureExists() {
         let url = fileURL
         let fm = FileManager.default
-        guard !fm.fileExists(atPath: url.path) else { return }
-        // Parent dir is created earlier by registerFileProviderDomain;
-        // defensive createDirectory here in case ensureExists is invoked
-        // from a code path that runs before that.
-        try? fm.createDirectory(at: url.deletingLastPathComponent(),
-                                withIntermediateDirectories: true)
-        try? defaultContent.data(using: .utf8)?.write(to: url, options: .atomic)
+        if !fm.fileExists(atPath: url.path) {
+            try? fm.createDirectory(at: url.deletingLastPathComponent(),
+                                    withIntermediateDirectories: true)
+            try? defaultContent.data(using: .utf8)?.write(to: url, options: .atomic)
+        } else if let str = try? String(contentsOf: url, encoding: .utf8), str.contains("name: \"Minis\"") {
+            let updated = str.replacingOccurrences(of: "name: \"Minis\"", with: "name: \"Rovie\"")
+            try? updated.data(using: .utf8)?.write(to: url, options: .atomic)
+        }
     }
 
     /// Read + parse the current SOUL.md. Returns nil when the file does
@@ -1069,10 +1070,13 @@ enum SystemPromptBuilder {
         let name: String = {
             let n = (file?.metadata.name ?? SoulMetadata.default.name)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            return n.isEmpty ? "Minis" : n
+            return n.isEmpty ? "Rovie" : n
         }()
         let style: String = (file?.metadata.style ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let lang: String = (file?.metadata.lang ?? SoulMetadata.default.lang)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
 
         let identity = identityTemplate.replacingOccurrences(of: "{name}", with: name)
         let identityTrimmed = identity.trimmingCharacters(in: .whitespaces)
@@ -1088,6 +1092,17 @@ enum SystemPromptBuilder {
             "1. Tool: call `minis-config` to propose changes (user must approve).\n" +
             "2. UI: ask the user to go to Settings → Soul to edit directly.\n" +
             "Pick whichever the user finds easier in context. Do not say you cannot change your personality."
+
+        func langBlock(_ l: String) -> String {
+            switch l {
+            case "pcm", "pidgin":
+                return "\n\nLanguage requirement (from SOUL.md `lang`):\nYou must communicate and reply in African Pidgin (Nigerian / West African Pidgin English) by default, using natural and engaging African Pidgin phrasing unless the user explicitly asks for another language."
+            case "en":
+                return "\n\nLanguage requirement (from SOUL.md `lang`):\nAlways reply in English unless the user explicitly asks for another language."
+            default:
+                return ""
+            }
+        }
 
         // [T-soul-style-injection 2026-05-18] The `style` frontmatter field
         // (response voice / tone / formatting preference, e.g. a row of
@@ -1105,11 +1120,11 @@ enum SystemPromptBuilder {
         }
 
         guard let body = file?.body else {
-            return identityTrimmed + styleBlock(style) + "\n\n" + soulEditHint + "\n\n"
+            return identityTrimmed + langBlock(lang) + styleBlock(style) + "\n\n" + soulEditHint + "\n\n"
         }
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            return identityTrimmed + styleBlock(style) + "\n\n" + soulEditHint + "\n\n"
+            return identityTrimmed + langBlock(lang) + styleBlock(style) + "\n\n" + soulEditHint + "\n\n"
         }
 
         // Reject (NOT truncate) bodies that exceed the language-aware
@@ -1125,7 +1140,7 @@ enum SystemPromptBuilder {
         let check = SoulStore.isOverLimit(trimmed)
         guard !check.isOverLimit else {
             Self.logger.warning("[Soul] personality body is over the language-aware limit (\(check)) — falling back to identity-only system prompt.")
-            return identityTrimmed + styleBlock(style) + "\n\n" + soulEditHint + "\n\n"
+            return identityTrimmed + langBlock(lang) + styleBlock(style) + "\n\n" + soulEditHint + "\n\n"
         }
 
         let personality = scrubInjections(trimmed)
@@ -1133,6 +1148,7 @@ enum SystemPromptBuilder {
         // Strip the trailing space we'd otherwise leave hanging at the
         // end of the first paragraph when a personality block follows.
         return identityTrimmed
+            + langBlock(lang)
             + "\n\nPersonality (from SOUL.md — your character and voice; defer to the user's latest message when it conflicts with anything here):\n"
             + personality
             + styleBlock(style)
@@ -1173,12 +1189,12 @@ enum SystemPromptBuilder {
 @MainActor
 struct AssistantSoulName: View {
     @State private var name: String = SoulStore.cachedMetadata.name.isEmpty
-        ? "Minis" : SoulStore.cachedMetadata.name
+        ? "Rovie" : SoulStore.cachedMetadata.name
     var body: some View {
         Text(name)
             .onReceive(NotificationCenter.default.publisher(for: .soulMdChanged)) { _ in
                 let n = SoulStore.cachedMetadata.name
-                name = n.isEmpty ? "Minis" : n
+                name = n.isEmpty ? "Rovie" : n
             }
     }
 }

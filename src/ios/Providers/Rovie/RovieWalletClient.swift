@@ -2,17 +2,17 @@ import Foundation
 import Combine
 
 /// [RovieWalletBalance] Decoded wallet budget state from Rovie Route
-public struct RovieWalletBalance: Codable, Sendable {
-    public let availableUsd: Double
-    public let spendUsd: Double
-    public let maxBudgetUsd: Double?
-    public let localCurrency: String
-    public let availableLocal: Double
-    public let spendLocal: Double
-    public let maxBudgetLocal: Double?
-    public let country: String
+struct RovieWalletBalance: Codable, Sendable {
+    let availableUsd: Double
+    let spendUsd: Double
+    let maxBudgetUsd: Double?
+    let localCurrency: String
+    let availableLocal: Double
+    let spendLocal: Double
+    let maxBudgetLocal: Double?
+    let country: String
 
-    public var formattedLocalAvailable: String {
+    var formattedLocalAvailable: String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = localCurrency
@@ -39,17 +39,17 @@ public struct RovieWalletBalance: Codable, Sendable {
 
 /// Observable client for monitoring Rovie Route wallet balance
 @MainActor
-public final class RovieWalletClient: ObservableObject {
-    public static let shared = RovieWalletClient()
+final class RovieWalletClient: ObservableObject {
+    static let shared = RovieWalletClient()
 
-    @Published public private(set) var currentBalance: RovieWalletBalance?
-    @Published public private(set) var isLoading: Bool = false
-    @Published public private(set) var lastError: String?
+    @Published private(set) var currentBalance: RovieWalletBalance?
+    @Published private(set) var isLoading: Bool = false
+    @Published private(set) var lastError: String?
 
     private init() {}
 
     /// Refresh balance from the portal using the user's Rovie Route API key
-    public func refreshBalance(apiKey: String) async {
+    func refreshBalance(apiKey: String) async {
         guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             self.currentBalance = nil
             return
@@ -85,4 +85,3 @@ public final class RovieWalletClient: ObservableObject {
         }
     }
 }
-

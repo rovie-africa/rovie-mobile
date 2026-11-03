@@ -351,7 +351,7 @@ private struct ChatExportHeaderView: View {
                                 .stroke(Color(uiColor: .separator), lineWidth: 0.5))
                     }
                     // Product name: not localized.
-                    ExportLabel(text: "Open Minis", font: .systemFont(ofSize: 14, weight: .semibold),
+                    ExportLabel(text: "Rovie", font: .systemFont(ofSize: 14, weight: .semibold),
                                 color: .label, lines: 1)
                         .fixedSize()
                 }

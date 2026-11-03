@@ -175,7 +175,7 @@ struct ToolsSettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(AppLocalized("Lets the assistant ask you to choose between options, or to confirm a risky action before doing it, on a card in the chat. Only in chats you are in — never for sub agents, Shortcuts or scheduled tasks. When off, the assistant decides for itself and does not take risky actions without your go-ahead."))
                 if userAskEnabled && userAskNotify && notificationsDenied {
-                    Text(AppLocalized("Notifications are off for Minis in iOS Settings — questions will only show when you open the app."))
+                    Text(AppLocalized("Notifications are off for Rovie in iOS Settings — questions will only show when you open the app."))
                         .foregroundStyle(.orange)
                 }
             }

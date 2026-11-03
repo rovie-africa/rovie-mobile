@@ -2425,25 +2425,25 @@ final class DebugJSONRPC: @unchecked Sendable {
         }
 
         let decided = full &+ single
-        return [
-            "clusterCalls": calls,
-            "clusterFull": full,
-            "clusterSingle": single,
-            "clusterHitRatePct": decided > 0 ? Double(full) * 100.0 / Double(decided) : 0,
-            "missWhyNeighbourMapped": whyMapped,
-            "missWhySameFlagsRefused": whyFlags,
-            "missWhyHostPageEqualsGuest": whyNoCluster,
-            "missWhyClusterMmapFailed": whyEnomem,
-            "clusterPagesCommitted": pagesCommitted,
-            "avgPagesPerClusterCall": decided > 0 ? Double(pagesCommitted) / Double(decided) : 0,
-            "anonMmapCalls": anonMmaps,
-            "anonPagesMapped": anonPages,
-            "anonGuestMB": Double(guestBytes) / (1024 * 1024),
-            "anonHostMBUpperBound": Double(hostBytes) / (1024 * 1024),
-            "avgPagesPerAnonMmap": anonMmaps > 0 ? Double(anonPages) / Double(anonMmaps) : 0,
-            "hostPageSize": hostPage,
-            "appFootprintMB": footprintMB,
-        ]
+        var stats: [String: Any] = [:]
+        stats["clusterCalls"] = calls
+        stats["clusterFull"] = full
+        stats["clusterSingle"] = single
+        stats["clusterHitRatePct"] = decided > 0 ? Double(full) * 100.0 / Double(decided) : Double(0)
+        stats["missWhyNeighbourMapped"] = whyMapped
+        stats["missWhySameFlagsRefused"] = whyFlags
+        stats["missWhyHostPageEqualsGuest"] = whyNoCluster
+        stats["missWhyClusterMmapFailed"] = whyEnomem
+        stats["clusterPagesCommitted"] = pagesCommitted
+        stats["avgPagesPerClusterCall"] = decided > 0 ? Double(pagesCommitted) / Double(decided) : Double(0)
+        stats["anonMmapCalls"] = anonMmaps
+        stats["anonPagesMapped"] = anonPages
+        stats["anonGuestMB"] = Double(guestBytes) / (1024.0 * 1024.0)
+        stats["anonHostMBUpperBound"] = Double(hostBytes) / (1024.0 * 1024.0)
+        stats["avgPagesPerAnonMmap"] = anonMmaps > 0 ? Double(anonPages) / Double(anonMmaps) : Double(0)
+        stats["hostPageSize"] = hostPage
+        stats["appFootprintMB"] = footprintMB
+        return stats
     }
 
     private func handleAppInfo(params: [String: Any] = [:]) -> Any {

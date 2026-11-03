@@ -34,8 +34,8 @@ struct SoulSettingsView: View {
     private static var langOptions: [(label: String, value: String)] {
         [
             (AppLocalized("Auto"), "auto"),
-            (AppLocalized("Chinese"), "zh"),
             (AppLocalized("English"), "en"),
+            (AppLocalized("African Pidgin"), "pcm"),
         ]
     }
 
@@ -47,7 +47,7 @@ struct SoulSettingsView: View {
 
             Section(AppLocalized("Identity")) {
                 LabeledContent(AppLocalized("Name")) {
-                    TextField("Minis", text: $name)
+                    TextField("Rovie", text: $name)
                         .multilineTextAlignment(.trailing)
                         .textInputAutocapitalization(.words)
                         .submitLabel(.done)
@@ -228,7 +228,7 @@ struct SoulSettingsView: View {
                 Text(AppLocalized("Any image works. It's cropped to a square and shown with rounded corners."))
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(name.isEmpty ? "Minis" : name)
+                Text(name.isEmpty ? "Rovie" : name)
                     .font(.title3.weight(.semibold))
                 if !style.trimmingCharacters(in: .whitespaces).isEmpty {
                     Text(style)

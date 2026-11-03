@@ -49,21 +49,17 @@ struct SettingsSheet: View {
     var body: some View {
         NavigationStack(path: $navPath) {
             List {
-                Section {
+                Section("Account") {
                     NavigationLink {
-                        ProviderInstancesView()
+                        ManageAccountView()
                     } label: {
-                        if #available(iOS 26, *) {
-                            Label("Manage Providers", systemImage: "key.circle.fill")
-                        } else {
-                            Label("Manage Providers", systemImage: "lock.circle.fill")
-                        }
+                        Label("Manage Account", systemImage: "person.crop.circle")
                     }
 
                     NavigationLink {
                         ModelGroupsView()
                     } label: {
-                        Label("Model Groups", systemImage: "gearshape.circle.fill")
+                        Label("Model Groups", systemImage: "square.stack.3d.up")
                     }
 
                     NavigationLink {
@@ -71,10 +67,6 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Token Usage", systemImage: "chart.line.uptrend.xyaxis.circle.fill")
                     }
-                } header: {
-                    Text("LLM Providers")
-                } footer: {
-                    Text("Configure which models the agent uses, manage API keys & OAuth for each provider, and create model groups for fallback or load balancing.")
                 }
 
                 Section("Appearance") {
@@ -387,7 +379,7 @@ struct SettingsSheet: View {
             .navigationDestination(for: SettingsDestination.self) { dest in
                 switch dest {
                 case .providers:
-                    ProviderInstancesView()
+                    ManageAccountView()
                 case .providerDetail(let id):
                     ProviderInstanceDetailView(instanceId: id)
                 case .modelGroups:

@@ -168,3 +168,8 @@ deps/aot/.build-iphonesimulator/
 LocalDev.xcconfig
 src/ios/Minis.personal.entitlements
 src/ios/Configs/ProviderCustomization.xcconfig
+
+# Build and local tooling artifacts
+buildServer.json
+deps/ish/tools/fakefsify_host
+*.paid

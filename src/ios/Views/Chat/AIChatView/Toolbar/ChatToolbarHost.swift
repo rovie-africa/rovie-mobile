@@ -217,9 +217,6 @@ struct ChatToolbarHost<Title: View, Trailing: View>: View, Equatable {
             .frame(width: 0, height: 0)
             .allowsHitTesting(false)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    RovieBalancePill()
-                }
                 ToolbarItem(placement: .principal) { title() }
                 if showsTrailing {
                     ToolbarItem(placement: .topBarTrailing) { trailing() }

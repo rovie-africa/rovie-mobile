@@ -73,17 +73,18 @@ struct AboutView: View {
             // MARK: - Project Info
             Section {
                 VStack(spacing: 8) {
-                    if let icon = UIImage(named: "AppIcon60x60") ?? UIImage(named: "AppIcon") {
+                    if let icon = UIImage(named: "RovieLogo") ?? UIImage(named: "AppIcon60x60") ?? UIImage(named: "AppIcon") {
                         Image(uiImage: icon)
                             .resizable()
                             .frame(width: 80, height: 80)
-                            .clipShape(RoundedRectangle(cornerRadius: 18))
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 18)
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
                                     .stroke(Color(UIColor.separator), lineWidth: 0.5)
                             )
+                            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
                     }
-                    Text("Minis")
+                    Text("Rovie")
                         .font(.title2.bold())
                     Text("Version \(appVersion)")
                         .font(.subheadline)
@@ -100,7 +101,7 @@ struct AboutView: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .textSelection(.enabled)
-                    Text("Minis is Your Fully Local, Fully Private On-Device Agent.")
+                    Text("Rovie is your personal device assistant.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

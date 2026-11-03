@@ -3,13 +3,13 @@ import SafariServices
 
 /// [RovieBalancePill] Navigation bar pill displaying the user's active local currency wallet balance.
 /// Tap opens route.rovie.africa in Safari for instant top-ups.
-public struct RovieBalancePill: View {
+struct RovieBalancePill: View {
     @ObservedObject var wallet = RovieWalletClient.shared
     @State private var showSafari = false
 
-    public init() {}
+    init() {}
 
-    public var body: some View {
+    var body: some View {
         Button {
             showSafari = true
         } label: {
@@ -59,10 +59,14 @@ struct RovieSafariView: UIViewControllerRepresentable {
 
 // MARK: - SwiftUI Preview for On-Device Canvas (Option 2)
 
-#Preview("Rovie Balance Pill - Live", traits: .sizeThatFitsLayout) {
-    HStack {
-        RovieBalancePill()
+#if DEBUG
+struct RovieBalancePill_Previews: PreviewProvider {
+    static var previews: some View {
+        HStack {
+            RovieBalancePill()
+        }
+        .padding()
+        .previewLayout(.sizeThatFits)
     }
-    .padding()
 }
-
+#endif

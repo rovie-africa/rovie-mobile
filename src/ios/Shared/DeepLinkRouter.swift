@@ -46,13 +46,19 @@ enum DeepLinkRouter {
 
     @MainActor
     static func handle(url: URL, shareCoordinator: ShareCoordinator) {
-        guard url.scheme == "minis", let host = url.host else {
-            deepLinkLog.info("ignored — non-minis or missing host: \(url.absoluteString)")
+        guard (url.scheme == "minis" || url.scheme == "rovie"), let host = url.host else {
+            deepLinkLog.info("ignored — non-minis/rovie or missing host: \(url.absoluteString)")
             return
         }
         let coord = DeepLinkCoordinator.shared
 
         switch host {
+        case "auth", "login":
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            if let key = components?.queryItems?.first(where: { $0.name == "key" || $0.name == "apiKey" })?.value,
+               !key.isEmpty {
+                RovieChannel.configureWithApiKey(key)
+            }
         case "share":
             // Funnel through ShareCoordinator so any leftover
             // fullScreenCover (gallery / WebApp / camera) is dismissed

@@ -607,7 +607,7 @@ struct StorageManagementView: View {
             } header: {
                 Text("Overview")
             } footer: {
-                Text("Total is the app's full container size and should match the figure iOS Settings shows for Minis. \"Other\" covers everything not itemized above, so the categories always add up to the total.")
+                Text("Total is the app's full container size and should match the figure iOS Settings shows for Rovie. \"Other\" covers everything not itemized above, so the categories always add up to the total.")
             }
 
             // [T-storage-clear-logs-caches]

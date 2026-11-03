@@ -38,7 +38,7 @@ struct EnhancedBackgroundSettingsView: View {
                     Toggle("Prefer Continued Background Processing (iOS 26+)", isOn: $keepAlive.continuedProcessingPreferred)
                         .focusHighlight(shouldFocus("continuedProcessingPreferred", current: keepAlive.continuedProcessingPreferred))
                 } footer: {
-                    Text("Shows a Minis task status on screen so the task keeps processing in the background.")
+                    Text("Shows a Rovie task status on screen so the task keeps processing in the background.")
                 }
             }
 

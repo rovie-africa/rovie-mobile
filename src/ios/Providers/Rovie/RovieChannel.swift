@@ -8,16 +8,16 @@ import Foundation
 /// Stamps:
 /// - `x-litellm-tags: rovie-mobile`
 /// - `x-litellm-session-id: <conversation-session-id>`
-public enum RovieChannel {
+enum RovieChannel {
 
     /// LiteLLM routing and tracking headers
-    public static let sessionHeader = "x-litellm-session-id"
-    public static let tagHeader = "x-litellm-tags"
-    public static let tagValue = "rovie-mobile"
+    static let sessionHeader = "x-litellm-session-id"
+    static let tagHeader = "x-litellm-tags"
+    static let tagValue = "rovie-mobile"
 
     /// Default Rovie Route gateway and wallet portal
-    public static let defaultBaseURL = "https://api.rovie.africa/v1"
-    public static let defaultPortalURL = "https://route.rovie.africa"
+    static let defaultBaseURL = "https://api.rovie.africa/v1"
+    static let defaultPortalURL = "https://route.rovie.africa"
 
     private static let serviceHosts = [
         "api.rovie.africa",
@@ -26,7 +26,7 @@ public enum RovieChannel {
     ]
 
     /// Matches whether a configured base URL belongs to Rovie Route
-    public static func looksLikeRovieBaseURL(_ base: String?) -> Bool {
+    static func looksLikeRovieBaseURL(_ base: String?) -> Bool {
         guard let raw = base?.trimmingCharacters(in: .whitespacesAndNewlines),
               !raw.isEmpty else { return false }
         let withScheme = raw.contains("://") ? raw : "https://" + raw
@@ -36,7 +36,7 @@ public enum RovieChannel {
     }
 
     /// Curated model list mirroring rovie-code
-    public static let curatedModels: [(id: String, displayName: String, provider: String)] = [
+    static let curatedModels: [(id: String, displayName: String, provider: String)] = [
         ("claude-sonnet-5-5", "Claude Sonnet 5.5", "anthropic"),
         ("claude-haiku-5-5", "Claude Haiku 5.5", "anthropic"),
         ("gpt-6.1-sol", "GPT-6.1 Sol", "openai"),
@@ -50,12 +50,12 @@ public enum RovieChannel {
     ]
 
     /// Default model selection for onboarding
-    public static let defaultModelId = "claude-sonnet-5-5"
+    static let defaultModelId = "claude-sonnet-5-5"
 
     /// Attach Rovie tags and dynamic session ID to an OpenAIProvider instance
     @discardableResult
-    public static func attach(to provider: OpenAIProvider,
-                              resolveSessionId: @escaping @Sendable () -> String?) -> OpenAIProvider {
+    static func attach(to provider: OpenAIProvider,
+                       resolveSessionId: @escaping @Sendable () -> String?) -> OpenAIProvider {
         let existing = provider.perRequestHeaders
         provider.perRequestHeaders = { body in
             var headers = existing?(body) ?? [:]
@@ -73,5 +73,64 @@ public enum RovieChannel {
         }
         return provider
     }
-}
 
+    /// Seamless 1-tap configuration with a Rovie Route API key
+    @MainActor
+    static func configureWithApiKey(_ key: String) {
+        let cleanKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanKey.isEmpty else { return }
+
+        let store = ProviderConfigStore.shared
+
+        // Find or create Rovie Route instance
+        let instance: ProviderInstance
+        if let existing = store.instances.first(where: { looksLikeRovieBaseURL($0.customBaseURL) }) {
+            instance = existing
+        } else {
+            let newInst = ProviderInstance(
+                label: "Rovie Route",
+                providerType: .openAI,
+                credentialType: .apiKey,
+                customBaseURL: defaultBaseURL,
+                appendV1Suffix: true
+            )
+            store.addInstance(newInst)
+            instance = newInst
+        }
+
+        // Store API key in Keychain
+        ProviderKeychainHelper.saveAPIKey(cleanKey, instanceId: instance.id)
+
+        // Ensure model entries exist
+        let existingEntries = store.entries(for: instance.id)
+        if existingEntries.isEmpty {
+            for model in curatedModels {
+                let entry = ModelEntry(
+                    providerInstanceId: instance.id,
+                    model: LLMModel(
+                        id: model.id,
+                        displayName: model.displayName,
+                        provider: "openai"
+                    )
+                )
+                store.addEntry(entry)
+            }
+        }
+
+        // Ensure at least one ModelGroup exists so onboarding transitions immediately to chat
+        if store.modelGroups.isEmpty {
+            let entryIds = store.entries(for: instance.id).map { $0.id }
+            let group = ModelGroup(
+                name: "Rovie Default",
+                memberEntryIds: entryIds.isEmpty ? ["\(instance.id)/\(defaultModelId)"] : entryIds
+            )
+            store.addGroup(group)
+        }
+
+        // Kick off wallet balance check and catalog discovery in background
+        Task {
+            await RovieWalletClient.shared.refreshBalance(apiKey: cleanKey)
+            await store.refreshModels(for: instance)
+        }
+    }
+}

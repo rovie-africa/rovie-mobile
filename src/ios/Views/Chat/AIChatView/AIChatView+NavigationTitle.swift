@@ -160,7 +160,7 @@ extension AIChatView {
             modelName: display.displayName(for: vm.sessionId),
             isGroupBound: display.isGroupBound(for: vm.sessionId),
             speedBadge: displayedSpeedTier,
-            resolvedText: resolved.map { "\($0.providerLabel) · \($0.modelName)" },
+            resolvedText: resolved.map { $0.modelName },
             hasBinding: vm.sessionId != nil && configStore.binding(for: vm.sessionId!) != nil,
             hasProviders: !configStore.instances.isEmpty,
             showThinkingBadge: !vm.availableThinkingLevels.isEmpty
@@ -313,10 +313,6 @@ extension AIChatView {
                         showModelPicker = true
                     } label: {
                         HStack(spacing: 4) {
-                            // [T-quota-low-dot] green / yellow (quota low) / orange (signed out).
-                            ModelQuotaStatusDot(isAuthed: isAuthed,
-                                                instanceId: currentEntry?.providerInstanceId,
-                                                modelId: currentEntry?.baseModel.id)
                             if isGroupBound {
                                 Image(systemName: "square.stack.3d.up")
                                     .font(.system(size: 8))
@@ -334,14 +330,6 @@ extension AIChatView {
                         .layoutPriority(-1)
                     }
                     .buttonStyle(.plain)
-                    // [T-ios-voiceover-labels] This label is assembled from a
-                    // status dot, an optional group glyph, the model name and a
-                    // chevron. Left alone VoiceOver reads those as disconnected
-                    // fragments ("square stack 3d up", "chevron down"), so
-                    // combine the row into one element and state what it is.
-                    // The connection state and group binding are carried as the
-                    // VALUE rather than folded into the label, so VoiceOver
-                    // keeps them distinguishable from the control's name.
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text("Model", comment: "VoiceOver label for the model picker button"))
                     .accessibilityValue(Text(
@@ -352,12 +340,12 @@ extension AIChatView {
                             : (isAuthed
                                 ? AppLocalized("\(modelName), signed in", comment: "VoiceOver value: model picker, authenticated")
                                 : AppLocalized("\(modelName), not signed in", comment: "VoiceOver value: model picker, not authenticated"))
-                    ) + Text(quotaLow ? AppLocalized(", quota low", comment: "VoiceOver: appended to the model value when the model's quota or balance is low") : ""))
+                    ))
                     .accessibilityHint(Text("Opens the model picker", comment: "VoiceOver hint for the model picker button"))
                     .accessibilityAddTraits(.isButton)
                 }
 
-                if let detail = resolved {
+                if isGroupBound, let detail = resolved {
                     // Row 2: "provider · model" + the thinking-level badge as a
                     // SEPARATE tappable sibling (not nested in the model-picker
                     // Button) so the badge opens ThinkingLevelSheetView while the
@@ -391,7 +379,7 @@ extension AIChatView {
                         Button {
                             showModelPicker = true
                         } label: {
-                            Text("\(detail.providerLabel) · \(detail.modelName)")
+                            Text(detail.modelName)
                                 .font(.system(size: 9))
                                 .foregroundStyle(ChatColors.secondaryText)
                                 .lineLimit(1)
