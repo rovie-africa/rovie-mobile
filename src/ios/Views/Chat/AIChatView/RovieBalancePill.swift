@@ -65,3 +65,4 @@ struct RovieSafariView: UIViewControllerRepresentable {
     }
     .padding()
 }
+
