@@ -459,4 +459,9 @@ void sessions_offload_register(void) {
     } else {
         NSLog(@"NativeOffloads: failed to register minis-sessions-cli handler (err=%d)", err);
     }
+    int err2 = native_offload_add_handler("rovie-sessions-cli", sessions_handler);
+    if (err2 == 0) {
+        noff_ensure_guest_stub("/usr/local/bin/rovie-sessions-cli");
+        NSLog(@"NativeOffloads: rovie-sessions-cli handler registered");
+    }
 }

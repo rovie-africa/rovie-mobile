@@ -510,9 +510,7 @@ extension AIChatView {
                 .font(.system(size: 8, weight: .medium))
         }
         .foregroundStyle(ChatColors.secondaryText)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(Capsule().fill(Color.secondary.opacity(0.10)))
+        .contentShape(Rectangle())
         .onTapGesture {
             showThinkingLevelSheet = true
         }

@@ -209,4 +209,9 @@ void scheduled_offload_register(void) {
     } else {
         NSLog(@"NativeOffloads: failed to register minis-scheduled handler (err=%d)", err);
     }
+    int err2 = native_offload_add_handler("rovie-scheduled", scheduled_handler);
+    if (err2 == 0) {
+        noff_ensure_guest_stub("/usr/local/bin/rovie-scheduled");
+        NSLog(@"NativeOffloads: rovie-scheduled handler registered");
+    }
 }

@@ -209,7 +209,7 @@ struct ProviderQuotaSection: View {
         case .passiveNotImplemented:
             return String(localized: "This provider only reports quota alongside replies; showing it isn't supported yet.")
         case .capabilityProbeFailed:
-            return String(localized: "This endpoint didn't answer the balance lookup. Minis will check again tomorrow, or tap refresh to check now.")
+            return String(localized: "This endpoint didn't answer the balance lookup. Rovie will check again tomorrow, or tap refresh to check now.")
         }
     }
 
@@ -222,9 +222,9 @@ struct ProviderQuotaSection: View {
         case .notFound:
             return String(localized: "This endpoint doesn't offer a balance lookup.")
         case .rateLimited:
-            return String(localized: "The provider is rate limiting balance lookups. Minis will try again later.")
+            return String(localized: "The provider is rate limiting balance lookups. Rovie will try again later.")
         case .server:
-            return String(localized: "The provider's server returned an error. Minis will try again later.")
+            return String(localized: "The provider's server returned an error. Rovie will try again later.")
         case .network:
             return String(localized: "Couldn't reach the provider.")
         case .badResponse, .unsupportedResponse:

@@ -320,7 +320,7 @@ struct SettingsSheet: View {
                         AboutView()
                     } label: {
                         Label {
-                            Text("About Minis")
+                            Text("About Rovie")
                         } icon: {
                             Image(systemName: "info")
                                 .font(.system(size: 9))
@@ -553,9 +553,9 @@ struct SettingsSheet: View {
 
         var components = URLComponents()
         components.scheme = "mailto"
-        components.path = "dev@openminis.app"
+        components.path = "contact@rovie.africa"
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "Minis Feedback"),
+            URLQueryItem(name: "subject", value: "Rovie Feedback"),
             URLQueryItem(name: "body", value: body),
         ]
         return components.url
@@ -583,7 +583,7 @@ struct SettingsSheet: View {
         |-------|-------|
         | Platform | iOS |
         | OS Version | iOS \(iosVersion) |
-        | Minis Version | \(appVersion) (build \(build)) |
+        | Rovie Version | \(appVersion) (build \(build)) |
         | Device Model | \(device) |
 
         ## 🔁 Steps to Reproduce

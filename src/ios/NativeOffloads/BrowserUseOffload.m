@@ -374,4 +374,9 @@ void browser_use_offload_register(void) {
     } else {
         NSLog(@"NativeOffloads: failed to register minis-browser-use handler (err=%d)", err);
     }
+    int err2 = native_offload_add_handler("rovie-browser-use", browser_use_handler);
+    if (err2 == 0) {
+        noff_ensure_guest_stub("/usr/local/bin/rovie-browser-use");
+        NSLog(@"NativeOffloads: rovie-browser-use handler registered");
+    }
 }

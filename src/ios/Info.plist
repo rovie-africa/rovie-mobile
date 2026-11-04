@@ -184,6 +184,7 @@
 			<string>Rovie Share</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
+				<string>rovie</string>
 				<string>minis</string>
 			</array>
 		</dict>

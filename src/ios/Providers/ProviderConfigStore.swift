@@ -2320,6 +2320,55 @@ final class ProviderConfigStore: ObservableObject {
 
     // MARK: - Defaults
 
+    // MARK: - Last Selected Model (Sticky Selection Across New Chats)
+
+    private static let lastSelectedModelKey = "rovie_last_selected_model_source"
+
+    @Published public private(set) var lastSelectedModelSource: SessionModelSource? = {
+        guard let data = UserDefaults.standard.data(forKey: lastSelectedModelKey),
+              let source = try? JSONDecoder().decode(SessionModelSource.self, from: data) else {
+            return nil
+        }
+        return source
+    }()
+
+    func setLastSelectedModelSource(_ source: SessionModelSource?) {
+        lastSelectedModelSource = source
+        if let source = source, let data = try? JSONEncoder().encode(source) {
+            UserDefaults.standard.set(data, forKey: Self.lastSelectedModelKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.lastSelectedModelKey)
+        }
+    }
+
+    /// Verifies if a SessionModelSource resolves to an enabled, credentialed, non-hidden model.
+    func isUsable(source: SessionModelSource) -> Bool {
+        return resolvedEntry(for: source) != nil
+    }
+
+    /// Resolves the actual ModelEntry from a SessionModelSource if usable.
+    func resolvedEntry(for source: SessionModelSource) -> ModelEntry? {
+        switch source {
+        case .directEntry(let eid, _):
+            guard let entry = entry(for: eid), !entry.isHidden,
+                  let instance = instance(for: entry.providerInstanceId),
+                  instance.isEnabled, instance.hasAnyCredential else { return nil }
+            return entry
+        case .group(let gid, let eid):
+            guard let grp = group(for: gid) else { return nil }
+            if let entry = entry(for: eid), !entry.isHidden,
+               let inst = instance(for: entry.providerInstanceId),
+               inst.isEnabled, inst.hasAnyCredential {
+                return entry
+            }
+            if let fallbackId = ModelGroupRouter.resolve(group: grp, sessionId: UUID().uuidString, store: self),
+               let fallbackEntry = entry(for: fallbackId) {
+                return fallbackEntry
+            }
+            return nil
+        }
+    }
+
     var defaultPrimaryGroupId: String? {
         get { config.defaultPrimaryGroupId }
         set {

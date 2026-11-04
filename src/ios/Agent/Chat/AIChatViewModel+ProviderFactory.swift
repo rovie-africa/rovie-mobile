@@ -202,6 +202,13 @@ extension AIChatViewModel {
     private func resolveCurrentEntryUncached() -> ModelEntry? {
         let store = ProviderConfigStore.shared
 
+        // 0. Try sticky model selection for new/unsaved sessions
+        if sessionId == nil, let source = store.lastSelectedModelSource,
+           let entry = store.resolvedEntry(for: source) {
+            logger.info("🔀RESOLVE sticky source model=\(entry.model.id)")
+            return entry
+        }
+
         // 1. Try session binding
         if let sid = sessionId, let binding = store.binding(for: sid) {
             switch binding.primarySource {

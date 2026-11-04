@@ -596,4 +596,9 @@ void model_use_offload_register(void) {
     } else {
         NSLog(@"NativeOffloads: failed to register minis-model-use handler (err=%d)", err);
     }
+    int err2 = native_offload_add_handler("rovie-model-use", model_use_handler);
+    if (err2 == 0) {
+        noff_ensure_guest_stub("/usr/local/bin/rovie-model-use");
+        NSLog(@"NativeOffloads: rovie-model-use handler registered");
+    }
 }

@@ -20,7 +20,7 @@ struct SharedFoldersSettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Shared folders", systemImage: "info.circle")
                         .font(.subheadline.weight(.semibold))
-                    Text("These directories appear in iOS Files under On My iPhone → Minis. Tap a row to see details, browse, or toggle visibility.")
+                    Text("These directories appear in iOS Files under On My iPhone → Rovie. Tap a row to see details, browse, or toggle visibility.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

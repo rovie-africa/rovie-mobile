@@ -24,21 +24,24 @@ struct SessionModelPicker: View {
         self.ensureSessionId = ensureSessionId
     }
 
+    private var activeSource: SessionModelSource? {
+        if let sid = sessionId, let binding = store.binding(for: sid) {
+            return binding.primarySource
+        }
+        return store.lastSelectedModelSource
+    }
+
     private var currentEntryId: String? {
-        guard let sid = sessionId,
-              let binding = store.binding(for: sid) else { return nil }
-        switch binding.primarySource {
+        guard let source = activeSource else { return nil }
+        switch source {
         case .directEntry(let entryId, _): return entryId
         case .group(_, let resolvedEntryId): return resolvedEntryId
         }
     }
 
     private var currentGroupId: String? {
-        guard let sid = sessionId else { return store.defaultPrimaryGroupId }
-        guard let binding = store.binding(for: sid) else {
-            return store.defaultPrimaryGroupId
-        }
-        if case .group(let groupId, _) = binding.primarySource {
+        guard let source = activeSource else { return store.defaultPrimaryGroupId }
+        if case .group(let groupId, _) = source {
             return groupId
         }
         return nil
@@ -124,28 +127,40 @@ struct SessionModelPicker: View {
 
     private func bindToGroup(_ group: ModelGroup) {
         Task {
-            guard let sid = await resolveSessionId() else { return }
-            let resolvedEntryId = ModelGroupRouter.resolve(group: group, sessionId: sid, store: store) ?? ""
+            let targetSid = sessionId
+            let resolvedEntryId = ModelGroupRouter.resolve(group: group, sessionId: targetSid ?? UUID().uuidString, store: store) ?? ""
             let source = SessionModelSource.group(groupId: group.id, resolvedEntryId: resolvedEntryId)
-            let existing = store.binding(for: sid)
-            let binding = SessionModelBinding(
-                sessionId: sid,
-                primarySource: source,
-                subModelSource: existing?.subModelSource
-            )
-            store.setBinding(binding, for: sid)
-            if let thinkLevel = group.defaultThinkingLevel {
-                var cfg = store.inferenceConfig(for: sid) ?? SessionInferenceConfig()
-                cfg.thinkingLevel = thinkLevel
-                store.setInferenceConfig(cfg, for: sid)
-            }
-            NotificationCenter.default.post(
-                name: .sessionModelBindingChanged,
-                object: nil,
-                userInfo: ["groupId": group.id, "sessionId": sid]
-            )
-            if let entry = store.entry(for: resolvedEntryId) {
-                await ChatStore.shared.updateSessionModelId(sid, modelId: entry.model.id)
+
+            // Persist sticky selection for future new chats
+            store.setLastSelectedModelSource(source)
+
+            if let sid = targetSid {
+                let existing = store.binding(for: sid)
+                let binding = SessionModelBinding(
+                    sessionId: sid,
+                    primarySource: source,
+                    subModelSource: existing?.subModelSource
+                )
+                store.setBinding(binding, for: sid)
+                if let thinkLevel = group.defaultThinkingLevel {
+                    var cfg = store.inferenceConfig(for: sid) ?? SessionInferenceConfig()
+                    cfg.thinkingLevel = thinkLevel
+                    store.setInferenceConfig(cfg, for: sid)
+                }
+                if let entry = store.entry(for: resolvedEntryId) {
+                    await ChatStore.shared.updateSessionModelId(sid, modelId: entry.model.id)
+                }
+                NotificationCenter.default.post(
+                    name: .sessionModelBindingChanged,
+                    object: nil,
+                    userInfo: ["groupId": group.id, "sessionId": sid]
+                )
+            } else {
+                NotificationCenter.default.post(
+                    name: .sessionModelBindingChanged,
+                    object: nil,
+                    userInfo: ["groupId": group.id]
+                )
             }
             dismiss()
         }
@@ -153,33 +168,47 @@ struct SessionModelPicker: View {
 
     private func bindToEntry(_ entry: ModelEntry, inGroup group: ModelGroup? = nil) {
         Task {
-            guard let sid = await resolveSessionId() else { return }
+            let targetSid = sessionId
             let source: SessionModelSource
             if let group {
                 source = .group(groupId: group.id, resolvedEntryId: entry.id)
             } else {
                 source = .directEntry(modelEntryId: entry.id)
             }
-            let existing = store.binding(for: sid)
-            let binding = SessionModelBinding(
-                sessionId: sid,
-                primarySource: source,
-                subModelSource: existing?.subModelSource
-            )
-            store.setBinding(binding, for: sid)
-            if let group, let thinkLevel = group.defaultThinkingLevel {
-                var cfg = store.inferenceConfig(for: sid) ?? SessionInferenceConfig()
-                cfg.thinkingLevel = thinkLevel
-                store.setInferenceConfig(cfg, for: sid)
+
+            // Persist sticky selection for future new chats
+            store.setLastSelectedModelSource(source)
+
+            if let sid = targetSid {
+                let existing = store.binding(for: sid)
+                let binding = SessionModelBinding(
+                    sessionId: sid,
+                    primarySource: source,
+                    subModelSource: existing?.subModelSource
+                )
+                store.setBinding(binding, for: sid)
+                if let group, let thinkLevel = group.defaultThinkingLevel {
+                    var cfg = store.inferenceConfig(for: sid) ?? SessionInferenceConfig()
+                    cfg.thinkingLevel = thinkLevel
+                    store.setInferenceConfig(cfg, for: sid)
+                }
+                await ChatStore.shared.updateSessionModelId(sid, modelId: entry.model.id)
+                var info: [String: Any] = ["sessionId": sid]
+                if let group { info["groupId"] = group.id }
+                NotificationCenter.default.post(
+                    name: .sessionModelBindingChanged,
+                    object: nil,
+                    userInfo: info
+                )
+            } else {
+                var info: [String: Any] = [:]
+                if let group { info["groupId"] = group.id }
+                NotificationCenter.default.post(
+                    name: .sessionModelBindingChanged,
+                    object: nil,
+                    userInfo: info
+                )
             }
-            var info: [String: Any] = ["sessionId": sid]
-            if let group { info["groupId"] = group.id }
-            NotificationCenter.default.post(
-                name: .sessionModelBindingChanged,
-                object: nil,
-                userInfo: info
-            )
-            await ChatStore.shared.updateSessionModelId(sid, modelId: entry.model.id)
             dismiss()
         }
     }
@@ -192,10 +221,26 @@ struct SessionModelDisplay {
     let store: ProviderConfigStore
     var draftGroupId: String? = nil
 
+    private func effectiveDraftSource() -> SessionModelSource? {
+        store.lastSelectedModelSource
+    }
+
     func displayName(for sessionId: String?) -> String {
-        if sessionId == nil, let gid = draftGroupId,
-           let group = store.group(for: gid) {
-            return group.name
+        if sessionId == nil {
+            if let src = effectiveDraftSource() {
+                switch src {
+                case .directEntry(let eid, _):
+                    if let entry = store.entry(for: eid) { return entry.model.displayName }
+                case .group(let gid, let eid):
+                    if let entry = store.entry(for: eid) { return entry.model.displayName }
+                    if let group = store.group(for: gid) { return group.name }
+                }
+            }
+            if let gid = draftGroupId,
+               let group = store.group(for: gid) {
+                return group.name
+            }
+            return defaultDisplayName()
         }
         guard let sid = sessionId,
               let binding = store.binding(for: sid) else {
@@ -214,8 +259,16 @@ struct SessionModelDisplay {
     }
 
     func resolvedDetail(for sessionId: String?) -> (providerLabel: String, modelName: String)? {
-        if sessionId == nil, let gid = draftGroupId {
-            return resolvedDetail(forGroupId: gid)
+        if sessionId == nil {
+            if let src = effectiveDraftSource(),
+               let entry = store.resolvedEntry(for: src),
+               let instance = store.instance(for: entry.providerInstanceId) {
+                return (instance.label, entry.model.displayName)
+            }
+            if let gid = draftGroupId {
+                return resolvedDetail(forGroupId: gid)
+            }
+            return defaultResolvedDetail()
         }
         guard let sid = sessionId,
               let binding = store.binding(for: sid) else {
@@ -244,8 +297,17 @@ struct SessionModelDisplay {
     /// credentialType/providerType/model (e.g. the "..." menu's Fast Mode
     /// gate: Responses-API providers with a gpt-family model).
     func resolvedInstanceAndModel(for sessionId: String?) -> (instance: ProviderInstance, modelId: String)? {
-        if sessionId == nil, let gid = draftGroupId {
-            return resolvedInstanceAndModel(forGroupId: gid)
+        if sessionId == nil {
+            if let src = effectiveDraftSource(),
+               let entry = store.resolvedEntry(for: src),
+               let instance = store.instance(for: entry.providerInstanceId) {
+                return (instance, entry.model.id)
+            }
+            if let gid = draftGroupId {
+                return resolvedInstanceAndModel(forGroupId: gid)
+            }
+            guard let groupId = store.defaultPrimaryGroupId else { return nil }
+            return resolvedInstanceAndModel(forGroupId: groupId)
         }
         guard let sid = sessionId,
               let binding = store.binding(for: sid) else {
@@ -295,9 +357,16 @@ struct SessionModelDisplay {
     }
 
     func isGroupBound(for sessionId: String?) -> Bool {
-        if sessionId == nil, let gid = draftGroupId,
-           store.group(for: gid) != nil {
-            return true
+        if sessionId == nil {
+            if let src = effectiveDraftSource() {
+                if case .group = src { return true }
+                return false
+            }
+            if let gid = draftGroupId,
+               store.group(for: gid) != nil {
+                return true
+            }
+            return false
         }
         guard let sid = sessionId,
               let binding = store.binding(for: sid) else { return false }

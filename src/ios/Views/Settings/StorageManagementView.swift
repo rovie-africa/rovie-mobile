@@ -1009,7 +1009,7 @@ struct SessionStorageDetailView: View {
 
     var body: some View {
         List {
-            Section("Minis Files") {
+            Section("Rovie Files") {
                 if currentMinisSize > 0 {
                     NavigationLink {
                         FileBrowserView(rootPath: minisURL)
@@ -1022,7 +1022,7 @@ struct SessionStorageDetailView: View {
                         }
                     }
                 } else {
-                    Text("No minis files")
+                    Text("No rovie files")
                         .foregroundStyle(.secondary)
                 }
             }

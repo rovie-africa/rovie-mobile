@@ -1198,8 +1198,9 @@ extension AIChatViewModel {
             logger.info("🔑DRAFT [vm=\(self.vmInstanceId)] ensureSession already has sessionId=\(sid)")
             return sid
         }
-        let model = selectedModel
-        let session = await ChatStore.shared.createSession(modelId: model.id, source: sessionSource)
+        let stickyEntry = ProviderConfigStore.shared.lastSelectedModelSource.flatMap { ProviderConfigStore.shared.resolvedEntry(for: $0) }
+        let initialModelId = stickyEntry?.model.id ?? selectedModel.id
+        let session = await ChatStore.shared.createSession(modelId: initialModelId, source: sessionSource)
         sessionId = session.id
         // [T-minisurl-wrong-active-session] No Self.activeSessionId write:
         // drafts are also created by non-UI flows (chat.prompt RPC, share
@@ -1365,6 +1366,33 @@ extension AIChatViewModel {
 
         // Tier 0 — explicit group from long-press FAB.
         let overrideGroupId = initialGroupId
+
+        // Tier 0.5 — Sticky selected model (lastSelectedModelSource)
+        let candidateSource = store.lastSelectedModelSource
+        if overrideGroupId == nil, let source = candidateSource, store.isUsable(source: source) {
+            var subSource: SessionModelSource? = nil
+            if let subGroupId = store.defaultSubGroupId,
+               let subGroup = store.group(for: subGroupId),
+               let subEntryId = ModelGroupRouter.resolve(group: subGroup, sessionId: sessionId, store: store) {
+                subSource = .group(groupId: subGroupId, resolvedEntryId: subEntryId)
+            }
+            let binding = SessionModelBinding(
+                sessionId: sessionId,
+                primarySource: source,
+                subModelSource: subSource
+            )
+            store.setBinding(binding, for: sessionId)
+            if case .group(let groupId, _) = source, let group = store.group(for: groupId) {
+                applyGroupSessionDefaults(group: group, sessionId: sessionId,
+                                          preserveThinkingLevel: preserveThinkingLevel)
+            }
+            if let entry = store.resolvedEntry(for: source) {
+                Task { await ChatStore.shared.updateSessionModelId(sessionId, modelId: entry.model.id) }
+                logger.info("[NewSessionDefault] tier=0.5 sticky-model sid=\(sessionId.prefix(8)) entry=\(entry.id.prefix(8)) modelId=\(entry.model.id)")
+            }
+            return
+        }
+
         // Tier 1 — default group (current behaviour).
         if let groupId = overrideGroupId ?? store.defaultPrimaryGroupId,
            let group = store.group(for: groupId),

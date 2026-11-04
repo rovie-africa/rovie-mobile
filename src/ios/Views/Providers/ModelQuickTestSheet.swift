@@ -227,7 +227,7 @@ final class TestSession: ObservableObject {
                 throw QuickTestError.unsupported(AppLocalized("This model's provider doesn't support image generation via Quick Test."))
             }
             let resp = try await openAI.generateImage(
-                prompt: "A friendly cute mascot logo for an app called Minis, minimalist, centered, soft colors",
+                prompt: "A friendly cute mascot logo for an app called Rovie, minimalist, centered, soft colors",
                 n: 1, size: "1024x1024", quality: nil)
             guard let img = resp.mediaAttachments.first(where: { $0.type == .image }) else {
                 throw QuickTestError.noOutput(AppLocalized("No image was returned."))
@@ -256,7 +256,7 @@ final class TestSession: ObservableObject {
                 throw QuickTestError.unsupported(AppLocalized("This model can't be used for speech output."))
             }
             let req = VoiceOutputRequest(
-                input: "Hi! This is Minis testing text to speech.",
+                input: "Hi! This is Rovie testing text to speech.",
                 model: entry.model.id, voice: entry.model.id, speed: nil, responseFormat: .mp3,
                 resolvedModel: entry.model)
             let data = try await voice.synthesize(req)
@@ -268,7 +268,7 @@ final class TestSession: ObservableObject {
                   let voice = VoiceProviderFactory.make(for: instance), voice.supportsVoiceInput else {
                 throw QuickTestError.unsupported(AppLocalized("This model can't be used for transcription."))
             }
-            let spoken = "Hello from Minis, testing speech to text."
+            let spoken = "Hello from Rovie, testing speech to text."
             let wav = try await synthesizeTestWAV(spoken)
             // `resolvedModel` is what `VoiceProvider.transcribe` gates
             // chat-based ASR on (`if let model = request.resolvedModel`).

@@ -96,12 +96,12 @@ class ShareViewController: UIViewController {
 
     // MARK: - Redirect to main app
 
-    /// Opens `minis://share` through the UIApplication found in the responder
+    /// Opens `rovie://share` (falling back to `minis://share`) through the UIApplication found in the responder
     /// chain. `done` runs on the main thread once the open reported back, or
     /// at once when it could not be attempted.
     private func openHostApp(_ done: @escaping () -> Void) {
-        guard let url = URL(string: "minis://share") else {
-            NSLog("[ShareExt] ERROR: Failed to create minis://share URL")
+        guard let url = URL(string: "rovie://share") ?? URL(string: "minis://share") else {
+            NSLog("[ShareExt] ERROR: Failed to create share URL")
             done()
             return
         }
