@@ -79,7 +79,7 @@ struct ManageAccountView: View {
                     if let balance = wallet.currentBalance {
                         Text(balance.formattedLocalAvailable)
                             .font(.headline)
-                    } else if isConnected {
+                    } else if wallet.isLoading {
                         Text("Loading…")
                             .foregroundStyle(.secondary)
                     } else {

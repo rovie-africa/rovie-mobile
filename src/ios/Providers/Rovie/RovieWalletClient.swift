@@ -69,8 +69,10 @@ final class RovieWalletClient: ObservableObject {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+                let code = (response as? HTTPURLResponse)?.statusCode ?? 0
                 self.isLoading = false
-                self.lastError = "HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"
+                self.lastError = "HTTP \(code)"
+                print("[RovieWalletClient] Refresh balance failed: HTTP \(code)")
                 return
             }
 
@@ -82,6 +84,7 @@ final class RovieWalletClient: ObservableObject {
         } catch {
             self.isLoading = false
             self.lastError = error.localizedDescription
+            print("[RovieWalletClient] Refresh balance failed: \(error)")
         }
     }
 }
