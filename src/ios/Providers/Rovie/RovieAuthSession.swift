@@ -14,20 +14,22 @@ final class RovieAuthSession: NSObject, ASWebAuthenticationPresentationContextPr
         }
 
         let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "rovie") { callbackURL, error in
-            if let error = error {
-                if (error as? ASWebAuthenticationSessionError)?.code != .canceledLogin {
-                    completion(.failure(error))
+            DispatchQueue.main.async {
+                if let error = error {
+                    if (error as? ASWebAuthenticationSessionError)?.code != .canceledLogin {
+                        completion(.failure(error))
+                    }
+                    return
                 }
-                return
+                guard let callbackURL = callbackURL,
+                      let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
+                      let key = components.queryItems?.first(where: { $0.name == "key" || $0.name == "apiKey" })?.value,
+                      !key.isEmpty else {
+                    completion(.failure(NSError(domain: "RovieAuth", code: -2, userInfo: [NSLocalizedDescriptionKey: "No API key found in callback"])))
+                    return
+                }
+                completion(.success(key))
             }
-            guard let callbackURL = callbackURL,
-                  let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
-                  let key = components.queryItems?.first(where: { $0.name == "key" || $0.name == "apiKey" })?.value,
-                  !key.isEmpty else {
-                completion(.failure(NSError(domain: "RovieAuth", code: -2, userInfo: [NSLocalizedDescriptionKey: "No API key found in callback"])))
-                return
-            }
-            completion(.success(key))
         }
 
         session.presentationContextProvider = self

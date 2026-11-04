@@ -1,5 +1,9 @@
 import Foundation
 
+extension Notification.Name {
+    static let rovieAuthCompleted = Notification.Name("rovieAuthCompleted")
+}
+
 /// [RovieChannel] Dedicated integration channel for Rovie Route.
 ///
 /// Routes requests through Rovie Route's LiteLLM proxy (https://api.rovie.africa/v1)
@@ -85,7 +89,10 @@ enum RovieChannel {
         // Find or create Rovie Route instance
         let instance: ProviderInstance
         if let existing = store.instances.first(where: { looksLikeRovieBaseURL($0.customBaseURL) }) {
-            instance = existing
+            var updated = existing
+            updated.isEnabled = true
+            store.updateInstance(updated)
+            instance = updated
         } else {
             let newInst = ProviderInstance(
                 label: "Rovie Route",
@@ -126,6 +133,10 @@ enum RovieChannel {
             )
             store.addGroup(group)
         }
+
+        // Force store notification so all SwiftUI observers immediately redraw
+        store.objectWillChange.send()
+        NotificationCenter.default.post(name: .rovieAuthCompleted, object: nil, userInfo: ["apiKey": cleanKey])
 
         // Kick off wallet balance check and catalog discovery in background
         Task {

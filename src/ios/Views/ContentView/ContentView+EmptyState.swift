@@ -16,7 +16,14 @@ extension ContentView {
     }
 
     var emptyState: some View {
-        VStack(spacing: 32) {
+        let hasRovieInstance = providerStore.instances.contains(where: { RovieChannel.looksLikeRovieBaseURL($0.customBaseURL) })
+        let rovieKey: String? = {
+            guard let inst = providerStore.instances.first(where: { RovieChannel.looksLikeRovieBaseURL($0.customBaseURL) }) else { return nil }
+            return ProviderKeychainHelper.loadAPIKey(instanceId: inst.id)
+        }()
+        let isConfigured = hasRovieInstance && rovieKey != nil && !(rovieKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) && !providerStore.modelGroups.isEmpty
+
+        return VStack(spacing: 32) {
             Spacer()
 
             // App icon / hero
@@ -35,7 +42,7 @@ extension ContentView {
             VStack(spacing: 8) {
                 Text("Welcome to Rovie")
                     .font(.title2.bold())
-                Text("Set up your new device personal assistant")
+                Text(isConfigured ? "Ready to assist. Start a conversation to begin." : "Set up your new device personal assistant")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -44,47 +51,70 @@ extension ContentView {
 
             Spacer()
 
-            // Login / Auth Action
-            VStack(spacing: 12) {
-                Button {
-                    RovieAuthSession.shared.startLogin { result in
-                        switch result {
-                        case .success(let key):
-                            RovieChannel.configureWithApiKey(key)
-                        case .failure(let error):
-                            print("[RovieAuth] Login failed or cancelled: \(error.localizedDescription)")
-                            if let url = URL(string: "\(RovieChannel.defaultPortalURL)/signin?next=/auth/mobile") {
-                                UIApplication.shared.open(url)
+            if isConfigured {
+                VStack(spacing: 12) {
+                    Button {
+                        NotificationCenter.default.post(name: .newChatRequested, object: nil)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.bubble.fill")
+                                .font(.body.weight(.semibold))
+                            Text("Start New Chat")
+                                .font(.body.weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .frame(maxWidth: 380)
+                .padding(.horizontal, 24)
+            } else {
+                // Login / Auth Action
+                VStack(spacing: 12) {
+                    Button {
+                        RovieAuthSession.shared.startLogin { result in
+                            switch result {
+                            case .success(let key):
+                                RovieChannel.configureWithApiKey(key)
+                            case .failure(let error):
+                                print("[RovieAuth] Login failed or cancelled: \(error.localizedDescription)")
+                                if let url = URL(string: "\(RovieChannel.defaultPortalURL)/signin?next=/auth/mobile") {
+                                    UIApplication.shared.open(url)
+                                }
                             }
                         }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.up.right.square.fill")
+                                .font(.body.weight(.semibold))
+                            Text("Log in with Rovie")
+                                .font(.body.weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.up.right.square.fill")
-                            .font(.body.weight(.semibold))
-                        Text("Log in with Rovie")
-                            .font(.body.weight(.semibold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.accentColor)
-                    .foregroundColor(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
+                    .buttonStyle(.plain)
 
-                Button {
-                    showAddProvider = true
-                } label: {
-                    Text("Enter API key")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 6)
+                    Button {
+                        showAddProvider = true
+                    } label: {
+                        Text("Enter API key")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .frame(maxWidth: 380)
+                .padding(.horizontal, 24)
             }
-            .frame(maxWidth: 380)
-            .padding(.horizontal, 24)
 
             Spacer()
         }

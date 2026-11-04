@@ -46,19 +46,32 @@ enum DeepLinkRouter {
 
     @MainActor
     static func handle(url: URL, shareCoordinator: ShareCoordinator) {
-        guard (url.scheme == "minis" || url.scheme == "rovie"), let host = url.host else {
-            deepLinkLog.info("ignored — non-minis/rovie or missing host: \(url.absoluteString)")
+        guard (url.scheme == "minis" || url.scheme == "rovie") else {
+            deepLinkLog.info("ignored — non-minis/rovie: \(url.absoluteString)")
+            return
+        }
+        let host = (url.host ?? "").lowercased()
+        let path = url.path.lowercased()
+
+        // Handle auth callbacks (rovie://auth?key=... or rovie:///auth?key=...)
+        if host == "auth" || host == "login" || path.contains("auth") || path.contains("login") {
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            if let key = components?.queryItems?.first(where: { $0.name == "key" || $0.name == "apiKey" })?.value,
+               !key.isEmpty {
+                RovieChannel.configureWithApiKey(key)
+                return
+            }
+        }
+
+        guard !host.isEmpty else {
+            deepLinkLog.info("ignored — missing host: \(url.absoluteString)")
             return
         }
         let coord = DeepLinkCoordinator.shared
 
         switch host {
         case "auth", "login":
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            if let key = components?.queryItems?.first(where: { $0.name == "key" || $0.name == "apiKey" })?.value,
-               !key.isEmpty {
-                RovieChannel.configureWithApiKey(key)
-            }
+            break // handled above
         case "share":
             // Funnel through ShareCoordinator so any leftover
             // fullScreenCover (gallery / WebApp / camera) is dismissed

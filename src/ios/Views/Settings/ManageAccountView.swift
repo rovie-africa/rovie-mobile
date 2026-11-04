@@ -16,12 +16,14 @@ struct ManageAccountView: View {
     @State private var isTestingConnection = false
     @State private var connectionStatusMessage: String?
     @State private var showSignOutAlert = false
+    @State private var refreshId = UUID()
 
     private var rovieInstance: ProviderInstance? {
         store.instances.first(where: { RovieChannel.looksLikeRovieBaseURL($0.customBaseURL) })
     }
 
     private var currentApiKey: String? {
+        _ = refreshId
         guard let id = rovieInstance?.id else { return nil }
         return ProviderKeychainHelper.loadAPIKey(instanceId: id)
     }
@@ -110,6 +112,7 @@ struct ManageAccountView: View {
                         switch result {
                         case .success(let key):
                             RovieChannel.configureWithApiKey(key)
+                            refreshId = UUID()
                         case .failure(let error):
                             print("[ManageAccount] Login failed: \(error)")
                         }
@@ -192,6 +195,7 @@ struct ManageAccountView: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save") {
                             RovieChannel.configureWithApiKey(newApiKeyInput)
+                            refreshId = UUID()
                             showApiKeySheet = false
                         }
                         .disabled(newApiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -207,6 +211,22 @@ struct ManageAccountView: View {
             }
         } message: {
             Text("This will remove your stored Rovie key from this device.")
+        }
+        .onAppear {
+            refreshId = UUID()
+            if let key = currentApiKey {
+                Task {
+                    await wallet.refreshBalance(apiKey: key)
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rovieAuthCompleted)) { _ in
+            refreshId = UUID()
+            if let key = currentApiKey {
+                Task {
+                    await wallet.refreshBalance(apiKey: key)
+                }
+            }
         }
     }
 
@@ -257,6 +277,7 @@ struct ManageAccountView: View {
         if let instance = rovieInstance {
             ProviderKeychainHelper.deleteAPIKey(instanceId: instance.id)
             store.removeInstance(instance.id)
+            refreshId = UUID()
         }
     }
 }
