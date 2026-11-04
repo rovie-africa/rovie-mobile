@@ -1704,8 +1704,11 @@ final class OpenAIAgentProvider: AgentProvider {
         // Completions id length cap. capChatId() has already trimmed raw
         // ids to 40 chars upstream, so a naive `"\(raw)-\(n)"` could
         // overflow. Trim the base just enough to leave room for the
-        // suffix.
+        // suffix. Preserve ids containing `__thought__` (LiteLLM Gemini thought signature) in full.
         func renamedId(rawId: String, n: Int) -> String {
+            if rawId.contains("__thought__") {
+                return "\(rawId)-\(n)"
+            }
             let suffix = "-\(n)"
             let cap = maxChatCompletionsIdLength
             let baseRoom = max(0, cap - suffix.count)
@@ -2613,13 +2616,21 @@ final class OpenAIAgentProvider: AgentProvider {
     }
 
     /// Cap a tool ID to the Chat Completions limit (40 chars).
+    /// Preserves IDs containing `__thought__` (used by LiteLLM to convey Gemini thought signatures).
     private static func capChatId(_ id: String) -> String {
-        id.count <= maxChatCompletionsIdLength ? id : String(id.prefix(maxChatCompletionsIdLength))
+        if id.contains("__thought__") {
+            return id
+        }
+        return id.count <= maxChatCompletionsIdLength ? id : String(id.prefix(maxChatCompletionsIdLength))
     }
 
     /// Cap a tool ID to the Responses API limit (64 chars).
+    /// Preserves IDs containing `__thought__` (used by LiteLLM to convey Gemini thought signatures).
     private static func capResponsesId(_ id: String) -> String {
-        id.count <= maxResponsesAPIIdLength ? id : String(id.prefix(maxResponsesAPIIdLength))
+        if id.contains("__thought__") {
+            return id
+        }
+        return id.count <= maxResponsesAPIIdLength ? id : String(id.prefix(maxResponsesAPIIdLength))
     }
 }
 
