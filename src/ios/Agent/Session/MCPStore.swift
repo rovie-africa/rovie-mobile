@@ -618,7 +618,7 @@ final class MCPStore: ObservableObject {
         }.prefix(Self.maxMetadataCount)
         let maxNoteLength = 200   // same cap as SkillStore.skillPromptFragment
 
-        var lines = "Available MCP Servers (use minis-mcp-cli to discover and call):\n"
+        var lines = "Available MCP Servers (use rovie-mcp-cli to discover and call):\n"
         for s in selected {
             var note = s.note ?? ""
             if note.count > maxNoteLength {
@@ -630,11 +630,11 @@ final class MCPStore: ObservableObject {
                 lines += "- \(s.id): \(note)\n"
             }
         }
-        lines += "\nTo use: run `minis-mcp-cli tools <server>` to see available tools,\n"
-        lines += "then `minis-mcp-cli call <server> <tool> [args]` to invoke."
+        lines += "\nTo use: run `rovie-mcp-cli tools <server>` (or `minis-mcp-cli`) to see available tools,\n"
+        lines += "then `rovie-mcp-cli call <server> <tool> [args]` to invoke."
         // Agent-facing guidance on the runtime env placeholder; English-only,
         // not localized (this is prompt text, never shown in the UI).
-        lines += "\nWhen adding or modifying an MCP server config (via minis-mcp-cli add / the UI), use $$VARNAME in env/headers/url values as a placeholder resolved at runtime from the system/App environment variables — do not hardcode secrets; reference an existing App environment variable as $$NAME."
+        lines += "\nWhen adding or modifying an MCP server config (via rovie-mcp-cli add / minis-mcp-cli add / the UI), use $$VARNAME in env/headers/url values as a placeholder resolved at runtime from the system/App environment variables — do not hardcode secrets; reference an existing App environment variable as $$NAME."
         return lines
     }
 
@@ -673,7 +673,7 @@ final class MCPStore: ObservableObject {
         let quoted = "'" + server.replacingOccurrences(of: "'", with: "'\\''") + "'"
         let result = try await ISHExecutionCoordinator.shared.execute(
             sessionId: "mcp-settings",
-            command: "minis-mcp-cli refresh \(quoted)",
+            command: "rovie-mcp-cli refresh \(quoted)",
             timeout: 120,
             lineCallback: { _ in },
             pidCallback: { _ in }

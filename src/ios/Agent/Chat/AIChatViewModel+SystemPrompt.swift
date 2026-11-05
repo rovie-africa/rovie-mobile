@@ -252,7 +252,7 @@ extension AIChatViewModel {
             + "- What NOT to remember: passwords, API keys, tokens, secrets, or any sensitive credentials. Warn the user about the risk first; only proceed if they explicitly confirm.\n"
             + "- Keep memories concise, factual, and general-purpose — avoid noise that won't be useful later.\n\n"
             + "Scheduled tasks: crontab / at / nohup loops will stop when the app is suspended, so in-app scheduled scripts may not run as expected. "
-            + "For follow-ups and recurring prompts that only need to fire while Rovie stays open, run `minis-scheduled create …` (or `rovie-scheduled`) via shell_execute (it is best effort and dies with the app process). "
+            + "For follow-ups and recurring prompts that only need to fire while Rovie stays open, run `rovie-scheduled create …` (or `minis-scheduled`) via shell_execute (it is best effort and dies with the app process). "
             + "For recurring tasks that must fire even after the app is killed, tell the user to set up an automation in Apple Shortcuts — that is the only guaranteed way to trigger periodic execution on iOS. "
             + "(Waiting or polling WITHIN the current turn is different — that is what shell_execute `delay` chains are for, per the shell_execute notes above.)"
     }

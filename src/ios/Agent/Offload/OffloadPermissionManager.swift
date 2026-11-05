@@ -210,7 +210,9 @@ final class OffloadPermissionManager: ObservableObject {
     static func extractOffloadCommand(from shellCommand: String) -> String? {
         let trimmed = shellCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         let firstToken = trimmed.split(separator: " ", maxSplits: 1).first.map(String.init) ?? trimmed
-        let basename = (firstToken as NSString).lastPathComponent
+        var basename = (firstToken as NSString).lastPathComponent
+        if basename == "rovie-calendar" { basename = "apple-calendar" }
+        if basename == "rovie-reminders" { basename = "apple-reminders" }
         // Return the REGISTERED name, not the caller's spelling: every consumer
         // (permissionLevel, sessionGrants, the prompt's display label) keys off
         // the registry, and handing back "/usr/local/bin/apple-healthkit" would

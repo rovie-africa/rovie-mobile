@@ -57,7 +57,7 @@ enum UserAskCardModel {
         switch r.status {
         case .answered: return AppLocalized("Selected: \(a)")
         case .other: return AppLocalized("Answered: \(a)")
-        case .delegated: return AppLocalized("Left to Minis")
+        case .delegated: return AppLocalized("Left to Rovie")
         case .approved: return AppLocalized("Allowed once")
         case .denied: return AppLocalized("Cancelled")
         // [T-user-ask-no-policy] Nothing was applied, approved or cancelled.
@@ -1257,7 +1257,7 @@ private struct UserAskResolvedCard: View {
     private static func shortStatus(_ s: UserAskResultStatus) -> String {
         switch s {
         case .answered, .other: return AppLocalized("Answered")
-        case .delegated: return AppLocalized("Left to Minis")
+        case .delegated: return AppLocalized("Left to Rovie")
         case .approved: return AppLocalized("Allowed once")
         case .denied: return AppLocalized("Cancelled")
         case .timeout: return AppLocalized("Timed out")
@@ -1570,7 +1570,7 @@ enum UserAskSummary {
         let given = answer.filter { !$0.isEmpty }.joined(separator: ", ")
         switch status {
         case .answered, .other: return (given.isEmpty ? AppLocalized("Answered") : given, false)
-        case .delegated: return (AppLocalized("Left to Minis"), false)
+        case .delegated: return (AppLocalized("Left to Rovie"), false)
         case .approved: return (AppLocalized("Allow"), false)
         case .denied: return (AppLocalized("Cancel"), true)
         case .timeout: return (AppLocalized("Timed out"), true)

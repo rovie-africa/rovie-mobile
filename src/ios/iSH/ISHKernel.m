@@ -514,6 +514,9 @@ static void jit_crash_handler(int sig, siginfo_t *info, void *ctx) {
             uint64_t esr = uc->uc_mcontext->__es.__esr;
             bool was_write = (esr & 0x40) != 0;
 
+            NSLog(@"[JITCrashHandler] host_fault=%p guest_addr=0x%llx pc=0x%llx was_write=%d sp=0x%llx count=%d",
+                  info->si_addr, guest_addr, (unsigned long long)jit_saved_pc, was_write, exit_sp, jit_crash_count);
+
             // Write crash info directly to cpu_state. segfault_was_write is a
             // `bool`: store 1 byte (the gadgets use strb), not an int.
             *(uint64_t *)(cpu_ptr + CRASH_CPU_segfault_addr) = guest_addr;
@@ -534,6 +537,8 @@ static void jit_crash_handler(int sig, siginfo_t *info, void *ctx) {
 
             return;
         }
+        NSLog(@"[JITCrashHandler] REFUSED: exit_sp 0x%llx outside (sp 0x%llx, top 0x%llx]",
+              (unsigned long long)exit_sp, (unsigned long long)cur_sp, (unsigned long long)stack_top);
         char msg[160];
         int mlen = snprintf(msg, sizeof(msg),
             "\n=== iSH JIT recovery refused: exit_sp 0x%llx outside (sp 0x%llx, top 0x%llx] ===\n",
@@ -553,6 +558,7 @@ static void jit_crash_handler(int sig, siginfo_t *info, void *ctx) {
     // in_jit==0 (between JIT runs) from non-iSH threads (never set).
     extern __thread int ish_thread_marker;
     if (!ish_thread_marker) {
+        NSLog(@"[JITCrashHandler] non_ish_thread signal=%d fault=%p", sig, info->si_addr);
         jit_forward_non_ish_signal(sig, info, ctx);
         return;
     }
@@ -561,6 +567,7 @@ static void jit_crash_handler(int sig, siginfo_t *info, void *ctx) {
     // Unlike upstream (standalone process where _exit is fine), we're embedded
     // in the app — _exit would kill the entire app. Instead, log diagnostics
     // and terminate only this guest thread.
+    NSLog(@"[JITCrashHandler] GUEST CRASH: sig=%d fault=%p", sig, info->si_addr);
     char buf[512];
     int len;
     ucontext_t *uc = (ucontext_t *)ctx;
@@ -1107,6 +1114,7 @@ static void handle_process_exit(struct task *task, int code) {
         return;
 
     pid_t pid = task->pid;
+    NSLog(@"[KernelProcessExit] pid=%d rawCode=%d decoded=%d", (int)pid, code, (code & 0x7f) == 0 ? ((code >> 8) & 0xff) : (128 + (code & 0x7f)));
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter]
             postNotificationName:ISHProcessExitedNotification
@@ -1160,15 +1168,6 @@ static BOOL ish_is_debugger_attached(void) {
 
 + (void)applyAOJIT {
     BOOL on = [self isAOJITEnabled];
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-    // On physical iOS devices running detached from debugger, dynamic executable code
-    // triggers hardware W^X violation (SIGSEGV / exit code 139). Enforce JIT off.
-    if (!ish_is_debugger_attached()) {
-        on = NO;
-        setenv("ISH_JIT", "0", 1);
-        NSLog(@"ISHKernel: JIT disabled (running on physical iOS device without debugger)");
-    }
-#endif
     const char *cmd = on ? "on" : "off";
     int rc = jit_control(cmd, strlen(cmd));
     NSLog(@"ISHKernel: [AOJIT] %s (rc=%d)", cmd, rc);
@@ -1216,13 +1215,6 @@ static BOOL ish_is_debugger_attached(void) {
     }
 
     int err;
-
-    // 0. Disable JIT on physical iOS devices when running detached from debugger
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-    if (!ish_is_debugger_attached()) {
-        setenv("ISH_JIT", "0", 1);
-    }
-#endif
 
     // 0. Install JIT crash recovery handler (must be before any JIT code runs)
     install_jit_crash_handler();

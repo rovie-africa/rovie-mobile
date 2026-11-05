@@ -2841,18 +2841,18 @@ struct ToolLiveSheet: View {
 
     private var toolTitle: String {
         switch block.kind {
-        case .shellTool: return "Minis is using Shell"
-        case .fileReadTool: return "Minis is reading File"
-        case .fileWriteTool: return "Minis is using Editor"
-        case .fileEditTool: return "Minis is editing File"
-        case .browserTool: return "Minis is using Browser"
-        case .readImageTool: return "Minis is reading Image"
-        case .memoryTool: return "Minis is using Memory"
-        case .delegateTool: return "Minis is using an Agent"
-        case .userAskTool: return "Minis is asking you"
-        case .info: return "Minis"
-        case .text: return "Minis"
-        case .thinking: return "Minis"
+        case .shellTool: return "Rovie is using Shell"
+        case .fileReadTool: return "Rovie is reading File"
+        case .fileWriteTool: return "Rovie is using Editor"
+        case .fileEditTool: return "Rovie is editing File"
+        case .browserTool: return "Rovie is using Browser"
+        case .readImageTool: return "Rovie is reading Image"
+        case .memoryTool: return "Rovie is using Memory"
+        case .delegateTool: return "Rovie is using an Agent"
+        case .userAskTool: return "Rovie is asking you"
+        case .info: return "Rovie"
+        case .text: return "Rovie"
+        case .thinking: return "Rovie"
         }
     }
 

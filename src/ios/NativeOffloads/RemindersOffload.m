@@ -216,4 +216,11 @@ void reminders_offload_register(void) {
     } else {
         NSLog(@"NativeOffloads: failed to register apple-reminders handler (err=%d)", err);
     }
+    int err2 = native_offload_add_handler("rovie-reminders", reminders_handler);
+    if (err2 == 0) {
+        noff_ensure_guest_stub("/usr/local/bin/rovie-reminders");
+        NSLog(@"NativeOffloads: rovie-reminders handler registered");
+    } else {
+        NSLog(@"NativeOffloads: failed to register rovie-reminders handler (err=%d)", err2);
+    }
 }

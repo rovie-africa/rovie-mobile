@@ -325,6 +325,23 @@ static dispatch_queue_t authQueue(void) {
 
 // Request calendar access synchronously via semaphore
 static BOOL requestCalendarAccess(NSString **outError) {
+    EKAuthorizationStatus status = [EKEventStore authorizationStatusForEntityType:EKEntityTypeEvent];
+    if (@available(iOS 17.0, *)) {
+        if (status == EKAuthorizationStatusFullAccess || status == EKAuthorizationStatusAuthorized) {
+            return YES;
+        }
+    } else {
+        if (status == EKAuthorizationStatusAuthorized) {
+            return YES;
+        }
+    }
+    if (status == EKAuthorizationStatusDenied || status == EKAuthorizationStatusRestricted) {
+        if (outError) {
+            *outError = @"Calendar access denied. To grant access, open Settings > Privacy & Security > Calendars and enable Rovie.";
+        }
+        return NO;
+    }
+
     __block BOOL granted = NO;
     __block NSError *authError = nil;
 
@@ -354,12 +371,29 @@ static BOOL requestCalendarAccess(NSString **outError) {
         NSString *reason = authError.localizedDescription ?: @"Calendar access not granted";
         *outError = [NSString stringWithFormat:
             @"%@. To grant access, open Settings > Privacy & Security > Calendars "
-             "and enable Minis.", reason];
+             "and enable Rovie.", reason];
     }
     return granted;
 }
 
 static BOOL requestRemindersAccess(NSString **outError) {
+    EKAuthorizationStatus status = [EKEventStore authorizationStatusForEntityType:EKEntityTypeReminder];
+    if (@available(iOS 17.0, *)) {
+        if (status == EKAuthorizationStatusFullAccess || status == EKAuthorizationStatusAuthorized) {
+            return YES;
+        }
+    } else {
+        if (status == EKAuthorizationStatusAuthorized) {
+            return YES;
+        }
+    }
+    if (status == EKAuthorizationStatusDenied || status == EKAuthorizationStatusRestricted) {
+        if (outError) {
+            *outError = @"Reminders access denied. To grant access, open Settings > Privacy & Security > Reminders and enable Rovie.";
+        }
+        return NO;
+    }
+
     __block BOOL granted = NO;
     __block NSError *authError = nil;
 
@@ -389,7 +423,7 @@ static BOOL requestRemindersAccess(NSString **outError) {
         NSString *reason = authError.localizedDescription ?: @"Reminders access not granted";
         *outError = [NSString stringWithFormat:
             @"%@. To grant access, open Settings > Privacy & Security > Reminders "
-             "and enable Minis.", reason];
+             "and enable Rovie.", reason];
     }
     return granted;
 }
@@ -2347,5 +2381,12 @@ void calendar_offload_register(void) {
         NSLog(@"NativeOffloads: apple-calendar handler registered");
     } else {
         NSLog(@"NativeOffloads: failed to register apple-calendar handler (err=%d)", err);
+    }
+    int err2 = native_offload_add_handler("rovie-calendar", calendar_handler);
+    if (err2 == 0) {
+        noff_ensure_guest_stub("/usr/local/bin/rovie-calendar");
+        NSLog(@"NativeOffloads: rovie-calendar handler registered");
+    } else {
+        NSLog(@"NativeOffloads: failed to register rovie-calendar handler (err=%d)", err2);
     }
 }

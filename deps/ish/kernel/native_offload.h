@@ -48,7 +48,7 @@ struct task;
 //
 // ============================================================================
 
-#define NATIVE_OFFLOAD_MAX 32
+#define NATIVE_OFFLOAD_MAX 64
 
 // Handler function signature. Called in-process on the guest thread.
 // Receives translated argv (guest absolute paths → host paths) and

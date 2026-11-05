@@ -300,7 +300,7 @@ class RootfsManager {
         }
 
         let fm = FileManager.default
-        guard let enumerator = fm.enumerator(at: overlayURL, includingPropertiesForKeys: [.isRegularFileKey]) else {
+        guard let enumerator = fm.enumerator(at: overlayURL, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey]) else {
             return
         }
 
@@ -357,7 +357,7 @@ class RootfsManager {
                 if relativePath.hasPrefix(Self.mcpCliLibPrefix) {
                     posixMode = 0o444
                 }
-                let fakefsMode: UInt32 = 0o100000 | UInt32(posixMode)
+                let fakefsMode: UInt32 = (isSymlink ? 0o120000 : 0o100000) | UInt32(posixMode)
 
                 // Register in fakefs meta.db so iSH kernel can see the file
                 let metaStart = CFAbsoluteTimeGetCurrent()
