@@ -308,8 +308,9 @@ class RootfsManager {
         var copyTotalMs: Double = 0
         var metaDbTotalMs: Double = 0
         while let fileURL = enumerator.nextObject() as? URL {
-            guard let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),
-                  values.isRegularFile == true else { continue }
+            let isRegular = (try? fileURL.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+            let isSymlink = (try? fileURL.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true
+            guard isRegular || isSymlink else { continue }
 
             // relativePath e.g. "/etc/pip/pip.conf"
             let relativePath = fileURL.path.replacingOccurrences(of: overlayURL.path, with: "")
@@ -318,10 +319,15 @@ class RootfsManager {
             do {
                 let copyStart = CFAbsoluteTimeGetCurrent()
                 try fm.createDirectory(at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-                if fm.fileExists(atPath: destURL.path) {
-                    try fm.removeItem(at: destURL)
+                if fm.fileExists(atPath: destURL.path) || (try? fm.destinationOfSymbolicLink(atPath: destURL.path)) != nil {
+                    try? fm.removeItem(at: destURL)
                 }
-                try fm.copyItem(at: fileURL, to: destURL)
+                if isSymlink {
+                    let dest = try fm.destinationOfSymbolicLink(atPath: fileURL.path)
+                    try fm.createSymbolicLink(atPath: destURL.path, withDestinationPath: dest)
+                } else {
+                    try fm.copyItem(at: fileURL, to: destURL)
+                }
                 copyTotalMs += (CFAbsoluteTimeGetCurrent() - copyStart) * 1000
                 fileCount += 1
 

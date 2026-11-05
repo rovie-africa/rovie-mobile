@@ -39,10 +39,25 @@ emit() {
             emit_marker "$1"
             printf 'Opened in Minis browser: %s\n' "$1"
             ;;
-        minis://*)
-            # Already a minis:// URL — pass through.
+        minis://*|rovie://*)
+            # Pass through URL.
             emit_marker "$1"
             printf 'Opened in Minis preview: %s\n' "$1"
+            ;;
+        /var/rovie/*)
+            rel="${1#/var/rovie/}"
+            case "$rel" in
+                */*)
+                    host="${rel%%/*}"
+                    path="${rel#*/}"
+                    emit_marker "minis://$host/$path"
+                    printf 'Opened in Minis preview: minis://%s/%s\n' "$host" "$path"
+                    ;;
+                *)
+                    printf 'minis-open: not a previewable resource: %s\n' "$1" >&2
+                    return 0
+                    ;;
+            esac
             ;;
         /var/minis/*)
             # Convert /var/minis/<host>/<path> → minis://<host>/<path>

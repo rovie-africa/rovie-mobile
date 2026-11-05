@@ -43,6 +43,7 @@ static NSString *const AOJITEnabledDefaultsKey = @"aojitEnabled";
 #include <errno.h>
 #include <sys/syslimits.h> // PATH_MAX
 #include <signal.h>
+#include <sys/sysctl.h>
 #include <setjmp.h>
 #include <unistd.h>     // usleep
 #import <mach/mach.h>   // task_info / TASK_VM_INFO (phys_footprint)
@@ -1146,8 +1147,28 @@ static void handle_process_exit(struct task *task, int code) {
     [self applyAOJIT];
 }
 
+static BOOL ish_is_debugger_attached(void) {
+    struct kinfo_proc info;
+    info.kp_proc.p_flag = 0;
+    int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+    size_t size = sizeof(info);
+    if (sysctl(mib, 4, &info, &size, NULL, 0) == 0) {
+        return (info.kp_proc.p_flag & P_TRACED) != 0;
+    }
+    return NO;
+}
+
 + (void)applyAOJIT {
     BOOL on = [self isAOJITEnabled];
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+    // On physical iOS devices running detached from debugger, dynamic executable code
+    // triggers hardware W^X violation (SIGSEGV / exit code 139). Enforce JIT off.
+    if (!ish_is_debugger_attached()) {
+        on = NO;
+        setenv("ISH_JIT", "0", 1);
+        NSLog(@"ISHKernel: JIT disabled (running on physical iOS device without debugger)");
+    }
+#endif
     const char *cmd = on ? "on" : "off";
     int rc = jit_control(cmd, strlen(cmd));
     NSLog(@"ISHKernel: [AOJIT] %s (rc=%d)", cmd, rc);
@@ -1195,6 +1216,13 @@ static void handle_process_exit(struct task *task, int code) {
     }
 
     int err;
+
+    // 0. Disable JIT on physical iOS devices when running detached from debugger
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+    if (!ish_is_debugger_attached()) {
+        setenv("ISH_JIT", "0", 1);
+    }
+#endif
 
     // 0. Install JIT crash recovery handler (must be before any JIT code runs)
     install_jit_crash_handler();

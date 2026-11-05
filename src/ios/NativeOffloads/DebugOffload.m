@@ -552,6 +552,11 @@ void debug_offload_register(void) {
     } else {
         NSLog(@"NativeOffloads: failed to register minis-debug handler (err=%d)", err);
     }
+    int err2 = native_offload_add_handler("rovie-debug", debug_handler);
+    if (err2 == 0) {
+        noff_ensure_guest_stub("/usr/local/bin/rovie-debug");
+        NSLog(@"NativeOffloads: rovie-debug handler registered");
+    }
 
 #if DEBUG
     if (native_offload_add_handler("minis-hangtest", hangtest_handler) == 0) {

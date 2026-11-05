@@ -530,7 +530,7 @@ static int32_t _sweptContexts = 0;
     // $DISPLAY, so setting it here lets `python -c "import webbrowser;
     // webbrowser.open(...)"` and similar non-login shell invocations reach
     // /usr/local/bin/minis-open which emits an OSC marker parsed by the host.
-    ENVP_APPEND("BROWSER=/usr/local/bin/minis-open");
+    ENVP_APPEND("BROWSER=/usr/local/bin/rovie-open");
 
     // Inject device timezone so iSH userspace sees local time.
     // Use POSIX TZ format with a fixed name to avoid abbreviations like "GMT+8"

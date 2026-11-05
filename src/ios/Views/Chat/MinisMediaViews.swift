@@ -162,8 +162,8 @@ func minisMediaCacheKey(for source: String) -> String {
 
 func minisMediaCacheKey(for url: URL) -> String {
     let base = url.absoluteString
-    // Non-minis schemes: return as-is, we don't own that file's lifecycle.
-    guard url.scheme == "minis" else { return base }
+    // Non-minis/rovie schemes: return as-is, we don't own that file's lifecycle.
+    guard url.scheme == "minis" || url.scheme == "rovie" else { return base }
     guard let fileURL = resolveMinisFileURLCached(url: url) else {
         // File not resolvable (yet) — use the base key so a later real
         // fingerprint load replaces it naturally.
@@ -657,7 +657,7 @@ private struct MinisImageView: View {
     @State private var didNotifySizeChange = false
 
     var body: some View {
-        if let url, url.scheme == "minis" {
+        if let url, (url.scheme == "minis" || url.scheme == "rovie") {
             let ext = url.pathExtension.lowercased()
             let _ = minisLogger.info("[MinisImage][View] render url=\(url.absoluteString) ext=\(ext) hasLoadedImage=\(self.loadedImage != nil) attempt=\(self.loadAttempt)")
             if minisAudioExtensions.contains(ext) {

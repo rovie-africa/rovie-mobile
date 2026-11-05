@@ -53,7 +53,7 @@ final class MinisOpenURLBroker: ObservableObject {
     /// file preview via `handleMinisURLTap`.
     nonisolated static func isSupportedScheme(_ scheme: String?) -> Bool {
         guard let s = scheme?.lowercased() else { return false }
-        return s == "http" || s == "https" || s == "about" || s == "minis"
+        return s == "http" || s == "https" || s == "about" || s == "minis" || s == "rovie"
     }
 
     /// True for schemes that render as an in-chat WKWebView (safariURL /
