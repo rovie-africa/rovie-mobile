@@ -21,14 +21,22 @@ if clang.found()
         endif
     endif
 
-    vdso_compiler = [clang, '-target', 'aarch64-linux-gnu', '-fuse-ld=lld']
+    lld = find_program(
+        'ld.lld',
+        '/opt/homebrew/opt/llvm/bin/ld.lld',
+        '/usr/local/opt/llvm/bin/ld.lld',
+        '/Users/spruceemmanuel/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/bin/gcc-ld/ld.lld',
+        required: false
+    )
+    fuse_ld = lld.found() ? '-fuse-ld=' + lld.full_path() : '-fuse-ld=lld'
+    vdso_compiler = [clang, '-target', 'aarch64-linux-gnu', fuse_ld]
 
     vdso = custom_target('vdso-arm64',
         input: ['vdso.S', 'vdso.c', 'vdso.lds'],
         output: 'libvdso.so.elf',
         command: vdso_compiler + [
             '-o', '@OUTPUT@', '@INPUT0@', '@INPUT1@',
-            '-nostdlib', '-Wl,-T,@INPUT2@', '-Wl,--hash-style,sysv',
+            '-nostdlib', '-Wl,-T,@INPUT2@', '-Wl,--hash-style,sysv', '-Wl,-soname,linux-vdso.so.1',
             '-shared', '-fPIC', '-ffreestanding'
         ] + get_option('vdso_c_args').split())
 else

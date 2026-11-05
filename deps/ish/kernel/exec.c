@@ -379,7 +379,7 @@ static int elf_exec(struct fd *fd, const char *file, struct exec_args argv, stru
 #if !defined(GUEST_ARM64)
         {AX_SYSINFO, vdso_entry},
 #endif
-        {AX_SYSINFO_EHDR, current->mm->vdso},
+        {AX_SYSINFO_EHDR, memcmp(vdso_data, ELF_MAGIC, sizeof(ELF_MAGIC)) == 0 ? current->mm->vdso : 0},
 #if defined(GUEST_ARM64)
         {AX_HWCAP, 0x11f}, // FP|ASIMD|EVTSTRM|AES|PMULL|ATOMICS — AES+PMULL enables ring's gcm_ghash_clmul (64-bit CLMUL) path
 #else
