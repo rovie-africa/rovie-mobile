@@ -1153,6 +1153,7 @@ final class ProviderConfigStore: ObservableObject {
             }
         }
         if changed { save() }
+        syncAllRovieDefaultGroups()
     }
 
     func updateInstance(_ instance: ProviderInstance) {
@@ -2087,6 +2088,9 @@ final class ProviderConfigStore: ObservableObject {
         }
 
         save()
+        if config.instances.first(where: { $0.id == instanceId })?.isRovieChannel == true {
+            syncRovieDefaultGroup(for: instanceId)
+        }
         // `removed` is what really left the list now; a model the provider
         // merely stopped listing stays for the grace window and is `unlisted`.
         return ModelListDiff(total: models.count, added: added.count,
@@ -2189,6 +2193,42 @@ final class ProviderConfigStore: ObservableObject {
 
     func group(for id: String) -> ModelGroup? {
         config.modelGroups.first { $0.id == id }
+    }
+
+    /// Ensures all Rovie Route instances have their server-discovered models
+    /// synced into the "Rovie Default" model group.
+    func syncAllRovieDefaultGroups() {
+        for instance in config.instances where instance.isRovieChannel {
+            syncRovieDefaultGroup(for: instance.id)
+        }
+    }
+
+    /// Syncs all visible entries of a Rovie Route instance into the "Rovie Default" group.
+    func syncRovieDefaultGroup(for instanceId: String) {
+        let visibleIds = entries(for: instanceId).filter { !$0.isHidden }.map(\.id)
+        guard !visibleIds.isEmpty else { return }
+
+        if let group = config.modelGroups.first(where: { $0.name == "Rovie Default" }) {
+            let existingSet = Set(group.memberEntryIds)
+            let removedSet = Set(group.removedMembers.keys)
+            let missing = visibleIds.filter { !existingSet.contains($0) && !removedSet.contains($0) }
+            if !missing.isEmpty {
+                var updated = group
+                updated.memberEntryIds.append(contentsOf: missing)
+                updateGroup(updated, orderReason: "rovie-sync")
+            }
+            if config.defaultPrimaryGroupId == nil {
+                config.defaultPrimaryGroupId = group.id
+                save()
+            }
+        } else if config.modelGroups.isEmpty {
+            let group = ModelGroup(name: "Rovie Default", memberEntryIds: visibleIds)
+            addGroup(group)
+            if config.defaultPrimaryGroupId == nil {
+                config.defaultPrimaryGroupId = group.id
+                save()
+            }
+        }
     }
 
     // MARK: - Agent Loop Models
@@ -3223,6 +3263,16 @@ final class ProviderConfigStore: ObservableObject {
         // Custom UA only for custom-base OpenAI/Anthropic-compat instances (proxy/relay);
         // OAuth-login paths keep their required client UA, so we never pass it there.
         let ua = instance.supportsCustomUserAgent ? instance.effectiveCustomUserAgent : nil
+        if instance.isRovieChannel {
+            let key = modelFetchAPIKey(for: instance)
+            return try await RovieChannel.fetchModels(
+                apiKey: key,
+                baseURL: customBase,
+                appendV1Suffix: appendV1,
+                forceRefresh: forceRefresh,
+                userAgent: ua
+            )
+        }
         switch (instance.providerType, instance.credentialType) {
         case (.anthropic, .apiKey):
             guard let key = modelFetchAPIKey(for: instance) else {
@@ -3460,12 +3510,6 @@ final class ProviderConfigStore: ObservableObject {
             if !models.isEmpty {
                 return ModelFetchResult(models: models, source: "api", warnings: [])
             }
-            if instance.isRovieChannel {
-                let rovieModels = RovieChannel.curatedModels.map { item in
-                    LLMModel(id: item.id, displayName: item.displayName, provider: item.provider)
-                }
-                return ModelFetchResult(models: rovieModels, source: "rovie", warnings: [])
-            }
             vendorError = "the provider listed no models"
             let msg = "API returned empty model list"
             warnings.append(msg)
@@ -3473,12 +3517,6 @@ final class ProviderConfigStore: ObservableObject {
         } catch let error as ModelRefreshError {
             throw error  // No credential — don't attempt fallback
         } catch {
-            if instance.isRovieChannel {
-                let rovieModels = RovieChannel.curatedModels.map { item in
-                    LLMModel(id: item.id, displayName: item.displayName, provider: item.provider)
-                }
-                return ModelFetchResult(models: rovieModels, source: "rovie", warnings: [])
-            }
             vendorThrew = true
             vendorError = vendorErrorReason(error)
             let msg = "API fetch failed: \(error.localizedDescription)"

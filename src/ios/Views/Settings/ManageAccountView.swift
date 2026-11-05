@@ -15,11 +15,19 @@ struct ManageAccountView: View {
     @State private var newApiKeyInput = ""
     @State private var isTestingConnection = false
     @State private var connectionStatusMessage: String?
+    @State private var isRefreshingModels = false
+    @State private var refreshStatusMessage: String?
+    @State private var refreshSucceeded = true
     @State private var showSignOutAlert = false
     @State private var refreshId = UUID()
 
     private var rovieInstance: ProviderInstance? {
         store.instances.first(where: { RovieChannel.looksLikeRovieBaseURL($0.customBaseURL) })
+    }
+
+    private var rovieModelCount: Int {
+        guard let id = rovieInstance?.id else { return 0 }
+        return store.entries(for: id).filter { !$0.isHidden }.count
     }
 
     private var currentApiKey: String? {
@@ -131,6 +139,20 @@ struct ManageAccountView: View {
 
             // Connection Diagnostics
             Section("Diagnostics") {
+                if let instance = rovieInstance {
+                    NavigationLink {
+                        ProviderInstanceDetailView(instanceId: instance.id)
+                    } label: {
+                        HStack {
+                            Label("Models", systemImage: "cpu")
+                            Spacer()
+                            Text("\(rovieModelCount)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Button {
                     testConnection()
                 } label: {
@@ -152,9 +174,24 @@ struct ManageAccountView: View {
                 Button {
                     refreshModels()
                 } label: {
-                    Label("Refresh Models", systemImage: "arrow.clockwise")
+                    HStack {
+                        Label("Refresh Models", systemImage: "arrow.clockwise")
+                        Spacer()
+                        if isRefreshingModels {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else if let status = refreshStatusMessage {
+                            Text(status)
+                                .font(.footnote)
+                                .foregroundStyle(refreshSucceeded ? .green : .red)
+                        } else if rovieModelCount > 0 {
+                            Text("\(rovieModelCount) synced")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
-                .disabled(!isConnected)
+                .disabled(isRefreshingModels || !isConnected)
             }
 
             // Sign Out
@@ -214,6 +251,9 @@ struct ManageAccountView: View {
         }
         .onAppear {
             refreshId = UUID()
+            if let instance = rovieInstance {
+                store.syncRovieDefaultGroup(for: instance.id)
+            }
             if let key = currentApiKey {
                 Task {
                     await wallet.refreshBalance(apiKey: key)
@@ -222,6 +262,9 @@ struct ManageAccountView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .rovieAuthCompleted)) { _ in
             refreshId = UUID()
+            if let instance = rovieInstance {
+                store.syncRovieDefaultGroup(for: instance.id)
+            }
             if let key = currentApiKey {
                 Task {
                     await wallet.refreshBalance(apiKey: key)
@@ -264,11 +307,30 @@ struct ManageAccountView: View {
     }
 
     private func refreshModels() {
-        guard let instance = rovieInstance else { return }
+        guard let instance = rovieInstance, !isRefreshingModels else { return }
+        isRefreshingModels = true
+        refreshStatusMessage = nil
+
         Task {
-            await store.refreshModels(for: instance)
+            let outcome = await store.refreshModels(for: instance, caller: "ManageAccountView")
+            store.syncRovieDefaultGroup(for: instance.id)
             if let key = currentApiKey {
                 await wallet.refreshBalance(apiKey: key)
+            }
+            let total = store.entries(for: instance.id).filter { !$0.isHidden }.count
+            let ok = outcome.source != .kept && total > 0
+            isRefreshingModels = false
+            refreshSucceeded = ok
+            if ok {
+                if outcome.diff.added > 0 {
+                    refreshStatusMessage = "\(total) models (+\(outcome.diff.added))"
+                } else {
+                    refreshStatusMessage = "\(total) models synced"
+                }
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } else {
+                refreshStatusMessage = "Failed"
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
         }
     }

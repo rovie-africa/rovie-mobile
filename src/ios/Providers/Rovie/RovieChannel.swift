@@ -22,6 +22,7 @@ enum RovieChannel {
     /// Default Rovie Route gateway and wallet portal
     static let defaultBaseURL = "https://api.rovie.africa/v1"
     static let defaultPortalURL = "https://route.rovie.africa"
+    static let defaultCatalogURL = "https://rovie-account-service.fly.dev/models"
 
     private static let serviceHosts = [
         "api.rovie.africa",
@@ -39,22 +40,182 @@ enum RovieChannel {
         return serviceHosts.contains(where: { host == $0 || host.hasSuffix("." + $0) })
     }
 
-    /// Curated model list mirroring rovie-code
-    static let curatedModels: [(id: String, displayName: String, provider: String)] = [
-        ("claude-sonnet-5-5", "Claude Sonnet 5.5", "anthropic"),
-        ("claude-haiku-5-5", "Claude Haiku 5.5", "anthropic"),
-        ("gpt-6.1-sol", "GPT-6.1 Sol", "openai"),
-        ("gpt-6-astra", "GPT-6 Astra", "openai"),
-        ("gemini-3.8-flash", "Gemini 3.8 Flash", "google"),
-        ("gemini-3.7-flash", "Gemini 3.7 Flash", "google"),
-        ("deepseek-v4-flash", "DeepSeek V4 Flash", "deepseek"),
-        ("deepseek-v4-pro", "DeepSeek V4 Pro", "deepseek"),
-        ("qwen3.8-max", "Qwen 3.8 Max", "alibaba"),
-        ("grok-4.7", "Grok 4.7", "xai")
-    ]
-
     /// Default model selection for onboarding
     static let defaultModelId = "claude-sonnet-5-5"
+
+    /// Minimal offline-only bootstrap seed used ONLY if the device has no network
+    /// connection before the first `/models` fetch completes. All real models
+    /// are discovered dynamically from Rovie Route (`defaultCatalogURL` + `/v1/models`).
+    static let bootstrapModels: [LLMModel] = [
+        LLMModel(id: "rovie-free", displayName: "Rovie Free (Auto)", provider: "Rovie"),
+        LLMModel(id: defaultModelId, displayName: "Claude Sonnet 5.5", provider: "Anthropic")
+    ]
+
+    private static func normalizeProviderLabel(_ raw: String?) -> String {
+        switch (raw ?? "").lowercased() {
+        case "anthropic": return "Anthropic"
+        case "openai": return "OpenAI"
+        case "google": return "Google"
+        case "deepseek": return "DeepSeek"
+        case "xai": return "xAI"
+        case "moonshotai", "moonshot": return "Moonshot"
+        case "alibaba", "qwen": return "Alibaba"
+        case "mistral": return "Mistral"
+        case "cohere": return "Cohere"
+        case "groq": return "Groq"
+        case "cerebras": return "Cerebras"
+        case "togetherai", "together": return "Together"
+        case "fireworks": return "Fireworks"
+        case "rovie": return "Rovie"
+        default:
+            guard let raw, !raw.isEmpty else { return "OpenAI" }
+            return raw.prefix(1).uppercased() + raw.dropFirst()
+        }
+    }
+
+    /// Fetch the live Rovie Route model catalog dynamically from the server:
+    /// combines rich metadata (`name`, `provider`, `free`, `cost`, `limit`, `reasoning`,
+    /// `modalities`) from `https://rovie-account-service.fly.dev/models` with
+    /// the gateway's `/v1/models` list. No hardcoded model catalog required.
+    static func fetchModels(
+        apiKey: String?,
+        baseURL: String?,
+        appendV1Suffix: Bool = true,
+        forceRefresh: Bool = false,
+        userAgent: String? = nil
+    ) async throws -> [LLMModel] {
+        async let catalogResult: [LLMModel] = fetchPublicCatalogModels()
+        async let gatewayResult: Result<[LLMModel], Error> = {
+            guard let key = apiKey, !key.isEmpty else {
+                return .success([])
+            }
+            do {
+                let models = try await OpenAIModelsAPI.fetchModels(
+                    apiKey: key,
+                    baseURL: baseURL ?? defaultBaseURL,
+                    appendV1Suffix: appendV1Suffix,
+                    forceRefresh: forceRefresh,
+                    userAgent: userAgent
+                )
+                return .success(models)
+            } catch {
+                return .failure(error)
+            }
+        }()
+
+        let catalogModels = await catalogResult
+        let gatewayOutcome = await gatewayResult
+
+        var gatewayModels: [LLMModel] = []
+        var gatewayError: Error?
+        switch gatewayOutcome {
+        case .success(let list):
+            gatewayModels = list
+        case .failure(let err):
+            gatewayError = err
+        }
+
+        if catalogModels.isEmpty && gatewayModels.isEmpty {
+            if let gatewayError {
+                throw gatewayError
+            }
+            return bootstrapModels
+        }
+
+        // Merge: catalogModels carry authoritative server metadata (name, provider,
+        // free/cost, limits, modalities); gatewayModels add any extra models from /v1/models.
+        var mergedById: [String: LLMModel] = [:]
+        var orderedIds: [String] = []
+
+        for m in catalogModels {
+            mergedById[m.id] = m
+            orderedIds.append(m.id)
+        }
+
+        for gm in gatewayModels {
+            if var existing = mergedById[gm.id] {
+                if existing.contextWindow == nil { existing.contextWindow = gm.contextWindow }
+                if existing.maxOutputTokens == nil { existing.maxOutputTokens = gm.maxOutputTokens }
+                if existing.supportsReasoning == nil { existing.supportsReasoning = gm.supportsReasoning }
+                if existing.modalityOverride == nil { existing.modalityOverride = gm.modalityOverride }
+                mergedById[gm.id] = existing
+            } else {
+                mergedById[gm.id] = gm
+                orderedIds.append(gm.id)
+            }
+        }
+
+        let combined = orderedIds.compactMap { mergedById[$0] }
+        return ModelsDevAPI.enrichModels(combined)
+    }
+
+    private static func fetchPublicCatalogModels() async -> [LLMModel] {
+        guard let url = URL(string: defaultCatalogURL) else { return [] }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 10
+
+        guard let (data, response) = try? await URLSession.shared.data(for: req),
+              let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let items = root["models"] as? [[String: Any]] else {
+            return []
+        }
+
+        return items.compactMap { item -> LLMModel? in
+            guard let id = (item["litellmModelName"] as? String) ?? (item["id"] as? String),
+                  !id.isEmpty else { return nil }
+
+            let rawName = (item["name"] as? String) ?? id
+            let cost = item["cost"] as? [String: Any]
+            let isZeroCost = (cost?["input"] as? Double == 0) && (cost?["output"] as? Double == 0)
+            let isFree = (item["free"] as? Bool) == true || isZeroCost
+            let displayName: String
+            if isFree && !rawName.localizedCaseInsensitiveContains("free") {
+                displayName = "\(rawName) (Free)"
+            } else {
+                displayName = rawName
+            }
+
+            let provider = normalizeProviderLabel(item["provider"] as? String)
+
+            var modality: ModelModality = [.textInput, .textOutput]
+            if let mods = item["modalities"] as? [String: Any] {
+                if let inputs = mods["input"] as? [String] {
+                    if inputs.contains("image") { modality.insert(.imageInput) }
+                    if inputs.contains("pdf") { modality.insert(.pdfInput) }
+                    if inputs.contains("audio") { modality.insert(.audioInput) }
+                    if inputs.contains("video") { modality.insert(.videoInput) }
+                }
+                if let outputs = mods["output"] as? [String] {
+                    if outputs.contains("image") { modality.insert(.imageOutput) }
+                    if outputs.contains("audio") || outputs.contains("speech") { modality.insert(.audioOutput) }
+                    if outputs.contains("video") { modality.insert(.videoOutput) }
+                }
+            }
+
+            let limit = item["limit"] as? [String: Any]
+            let contextWindow = limit?["context"] as? Int
+            let maxOutput = limit?["output"] as? Int
+            let supportsReasoning = item["reasoning"] as? Bool
+
+            var model = LLMModel(
+                id: id,
+                displayName: displayName,
+                provider: provider,
+                modalityOverride: modality,
+                contextWindow: contextWindow,
+                maxOutputTokens: maxOutput,
+                supportsReasoning: supportsReasoning
+            )
+            if contextWindow != nil || maxOutput != nil {
+                model.limitsReportedByEndpoint = true
+            }
+            return model
+        }
+    }
 
     /// Attach Rovie tags and dynamic session ID to an OpenAIProvider instance
     @discardableResult
@@ -108,40 +269,25 @@ enum RovieChannel {
         // Store API key in Keychain
         ProviderKeychainHelper.saveAPIKey(cleanKey, instanceId: instance.id)
 
-        // Ensure model entries exist
-        let existingEntries = store.entries(for: instance.id)
-        if existingEntries.isEmpty {
-            for model in curatedModels {
-                let entry = ModelEntry(
-                    providerInstanceId: instance.id,
-                    model: LLMModel(
-                        id: model.id,
-                        displayName: model.displayName,
-                        provider: "openai"
-                    )
-                )
-                store.addEntry(entry)
+        // Seed minimal bootstrap only if completely empty before first server fetch
+        if store.entries(for: instance.id).isEmpty {
+            for model in bootstrapModels {
+                store.addEntry(ModelEntry(providerInstanceId: instance.id, model: model))
             }
         }
 
-        // Ensure at least one ModelGroup exists so onboarding transitions immediately to chat
-        if store.modelGroups.isEmpty {
-            let entryIds = store.entries(for: instance.id).map { $0.id }
-            let group = ModelGroup(
-                name: "Rovie Default",
-                memberEntryIds: entryIds.isEmpty ? ["\(instance.id)/\(defaultModelId)"] : entryIds
-            )
-            store.addGroup(group)
-        }
+        // Sync all visible Rovie Route entries into "Rovie Default" group
+        store.syncRovieDefaultGroup(for: instance.id)
 
         // Force store notification so all SwiftUI observers immediately redraw
         store.objectWillChange.send()
         NotificationCenter.default.post(name: .rovieAuthCompleted, object: nil, userInfo: ["apiKey": cleanKey])
 
-        // Kick off wallet balance check and catalog discovery in background
+        // Kick off wallet balance check and live server catalog discovery in background
         Task {
             await RovieWalletClient.shared.refreshBalance(apiKey: cleanKey)
             await store.refreshModels(for: instance)
+            store.syncRovieDefaultGroup(for: instance.id)
         }
     }
 }

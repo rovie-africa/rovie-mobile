@@ -1699,7 +1699,7 @@ struct UnifiedModelPicker: View {
         // (the ~60 voice roster shouldn't fill the list).
         // [T-picker-cache-first] Seeds from whatever is loaded now; re-seeded
         // when the first async build lands (see `.onChange(of: sections)`).
-        for item in (sections ?? []) where item.entries.count > 1 {
+        for item in (sections ?? []) where item.entries.count > 1 && !item.instance.isRovieChannel {
             ids.insert(item.instance.id)
         }
         collapsedInstanceIds = ids
