@@ -40,6 +40,7 @@ import com.openminis.app.sandbox.offload.AccessibilityOffloadHandler
 import com.openminis.app.sandbox.offload.AlarmOffloadHandler
 import com.openminis.app.sandbox.offload.BrowserUseOffloadHandler
 import com.openminis.app.sandbox.offload.CalendarOffloadHandler
+import com.openminis.app.sandbox.offload.CameraOffloadHandler
 import com.openminis.app.sandbox.offload.ClipboardOffloadHandler
 import com.openminis.app.sandbox.offload.ContactsOffloadHandler
 import com.openminis.app.sandbox.offload.DeviceOffloadHandler
@@ -757,6 +758,11 @@ class MinisApp : Application(), ImageLoaderFactory {
         NativeOffloadServer.register("android-contacts", contactsHandler)
         NativeOffloadServer.register("apple-contacts", contactsHandler)
         NativeOffloadServer.register("rovie-contacts", contactsHandler)
+
+        val cameraHandler = CameraOffloadHandler(this)
+        NativeOffloadServer.register("android-camera", cameraHandler)
+        NativeOffloadServer.register("apple-camera", cameraHandler)
+        NativeOffloadServer.register("rovie-camera", cameraHandler)
 
         NativeOffloadServer.register("android-device", DeviceOffloadHandler(this))
         NativeOffloadServer.register("android-location", LocationOffloadHandler(this))

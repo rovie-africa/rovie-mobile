@@ -35,6 +35,7 @@
 #import "OpenOffload.h"
 #import "ClipboardOffload.h"
 #import "AlarmOffload.h"
+#import "CameraOffload.h"
 
 // Auto Touch (debug-only simulated touch/scroll/input)
 #import "AutoTouch.h"

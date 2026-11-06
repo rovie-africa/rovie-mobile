@@ -353,6 +353,8 @@
 		E5L200SC2 /* ShortcutsOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200SC1 /* ShortcutsOffload.m */; };
 		E5L200AC2 /* ActivityOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200AC1 /* ActivityOffload.m */; };
 		E5L200AB2 /* ActivityOffloadBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5L200AB1 /* ActivityOffloadBridge.swift */; };
+		E5L200CM2 /* CameraOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200CM1 /* CameraOffload.m */; };
+		E5L200CB2 /* CameraOffloadBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5L200CB1 /* CameraOffloadBridge.swift */; };
 		E5L200BT2 /* BluetoothOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200BT1 /* BluetoothOffload.m */; };
 		E5L200BU2 /* BrowserUseOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200BU1 /* BrowserUseOffload.m */; };
 		E5L200BU4 /* BrowserUseOffloadBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5L200BU3 /* BrowserUseOffloadBridge.swift */; };
@@ -1150,6 +1152,9 @@
 		E5L200AC0 /* ActivityOffload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ActivityOffload.h; sourceTree = "<group>"; };
 		E5L200AC1 /* ActivityOffload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ActivityOffload.m; sourceTree = "<group>"; };
 		E5L200AB1 /* ActivityOffloadBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityOffloadBridge.swift; sourceTree = "<group>"; };
+		E5L200CM0 /* CameraOffload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraOffload.h; sourceTree = "<group>"; };
+		E5L200CM1 /* CameraOffload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CameraOffload.m; sourceTree = "<group>"; };
+		E5L200CB1 /* CameraOffloadBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraOffloadBridge.swift; sourceTree = "<group>"; };
 		E5L200BT0 /* BluetoothOffload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BluetoothOffload.h; sourceTree = "<group>"; };
 		E5L200BT1 /* BluetoothOffload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BluetoothOffload.m; sourceTree = "<group>"; };
 		E5L200BU0 /* BrowserUseOffload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserUseOffload.h; sourceTree = "<group>"; };
@@ -2183,6 +2188,9 @@
 				E5L200AC0 /* ActivityOffload.h */,
 				E5L200AC1 /* ActivityOffload.m */,
 				E5L200AB1 /* ActivityOffloadBridge.swift */,
+				E5L200CM0 /* CameraOffload.h */,
+				E5L200CM1 /* CameraOffload.m */,
+				E5L200CB1 /* CameraOffloadBridge.swift */,
 				E5L2000F3 /* ModelUseOffloadBridge.swift */,
 			);
 			path = NativeOffloads;
@@ -3366,6 +3374,8 @@
 				E5L200SC2 /* ShortcutsOffload.m in Sources */,
 				E5L200AC2 /* ActivityOffload.m in Sources */,
 				E5L200AB2 /* ActivityOffloadBridge.swift in Sources */,
+				E5L200CM2 /* CameraOffload.m in Sources */,
+				E5L200CB2 /* CameraOffloadBridge.swift in Sources */,
 				E5L2000F4 /* ModelUseOffloadBridge.swift in Sources */,
 				E5D00037 /* AgentLoopModelsView.swift in Sources */,
 				E54000001 /* DebugServer.swift in Sources */,

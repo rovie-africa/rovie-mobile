@@ -127,6 +127,8 @@ final class OffloadPermissionManager: ObservableObject {
         .init(name: "apple-calendar", displayLabel: "Calendar", description: "Events, schedules, and calendar details", category: .privacy, showInSettings: true),
         .init(name: "apple-reminders", displayLabel: "Reminders", description: "Tasks, due dates, and reminder lists", category: .privacy, showInSettings: true),
         .init(name: "apple-photos", displayLabel: "Photos", description: "Photos, videos, and album metadata", category: .privacy, showInSettings: true),
+        .init(name: "apple-camera", displayLabel: "Camera", description: "Capture live photos using device cameras", category: .privacy, showInSettings: true),
+        .init(name: "apple-contacts", displayLabel: "Contacts", description: "Search, view, and create address book contacts", category: .privacy, showInSettings: true),
         .init(name: "apple-location", displayLabel: "Location", description: "Current GPS coordinates and location history", category: .privacy, showInSettings: true),
         .init(name: "apple-homekit", displayLabel: "HomeKit", description: "Smart home devices, rooms, and scenes", category: .privacy, showInSettings: true),
         .init(name: "apple-clipboard", displayLabel: "Clipboard", description: "Text and images copied to the clipboard", category: .privacy, showInSettings: true),
@@ -140,6 +142,8 @@ final class OffloadPermissionManager: ObservableObject {
         .init(name: "apple-notification", displayLabel: "Notification", description: "", category: .system, showInSettings: false),
         .init(name: "apple-alarm", displayLabel: "Alarm", description: "", category: .system, showInSettings: false),
         .init(name: "apple-open", displayLabel: "Open URL", description: "", category: .system, showInSettings: false),
+        .init(name: "apple-shortcuts", displayLabel: "Shortcuts", description: "", category: .system, showInSettings: false),
+        .init(name: "apple-activity", displayLabel: "Live Activity", description: "", category: .system, showInSettings: false),
         .init(name: "apple-maps", displayLabel: "Maps", description: "", category: .system, showInSettings: false),
         .init(name: "apple-weather", displayLabel: "Weather", description: "", category: .system, showInSettings: false),
         .init(name: "apple-nlp", displayLabel: "NLP", description: "", category: .system, showInSettings: false),
@@ -213,6 +217,10 @@ final class OffloadPermissionManager: ObservableObject {
         var basename = (firstToken as NSString).lastPathComponent
         if basename == "rovie-calendar" { basename = "apple-calendar" }
         if basename == "rovie-reminders" { basename = "apple-reminders" }
+        if basename == "rovie-contacts" { basename = "apple-contacts" }
+        if basename == "rovie-camera" { basename = "apple-camera" }
+        if basename == "rovie-shortcuts" { basename = "apple-shortcuts" }
+        if basename == "rovie-activity" { basename = "apple-activity" }
         // Return the REGISTERED name, not the caller's spelling: every consumer
         // (permissionLevel, sessionGrants, the prompt's display label) keys off
         // the registry, and handing back "/usr/local/bin/apple-healthkit" would
