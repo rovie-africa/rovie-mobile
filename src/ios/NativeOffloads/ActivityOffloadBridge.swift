@@ -12,10 +12,16 @@ import ActivityKit
 @objc public class ActivityOffloadBridge: NSObject {
 
     @objc public static func isAvailable() -> Bool {
-        if #available(iOS 16.2, *) {
-            return AgentLiveActivityManager.shared.isAvailable
+        guard #available(iOS 16.2, *) else { return false }
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated {
+                AgentLiveActivityManager.shared.isAvailable
+            }
+        } else {
+            return DispatchQueue.main.sync {
+                AgentLiveActivityManager.shared.isAvailable
+            }
         }
-        return false
     }
 
     @objc public static func updateStatus(status: String, icon: String, title: String) -> Bool {
@@ -54,3 +60,4 @@ import ActivityKit
         return true
     }
 }
+

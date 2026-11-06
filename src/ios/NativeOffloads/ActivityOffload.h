@@ -12,3 +12,4 @@
 void activity_offload_register(void);
 
 #endif /* ActivityOffload_h */
+

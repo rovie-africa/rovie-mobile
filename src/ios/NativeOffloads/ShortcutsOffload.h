@@ -12,3 +12,4 @@
 void shortcuts_offload_register(void);
 
 #endif /* ShortcutsOffload_h */
+

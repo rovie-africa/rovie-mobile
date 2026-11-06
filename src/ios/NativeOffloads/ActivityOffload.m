@@ -187,3 +187,4 @@ void activity_offload_register(void) {
         NSLog(@"NativeOffloads: failed to register apple-activity handler (err=%d)", err);
     }
 }
+
