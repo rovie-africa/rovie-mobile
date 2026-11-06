@@ -746,13 +746,27 @@ class MinisApp : Application(), ImageLoaderFactory {
         // materialized lazily. Starting here means the abstract socket is
         // reachable even before any shell session is launched.
         NativeOffloadServer.register("android-alarm", AlarmOffloadHandler(this))
-        NativeOffloadServer.register("android-calendar", CalendarOffloadHandler(this))
+        val calendarHandler = CalendarOffloadHandler(this)
+        NativeOffloadServer.register("android-calendar", calendarHandler)
+        NativeOffloadServer.register("apple-calendar", calendarHandler)
+        NativeOffloadServer.register("rovie-calendar", calendarHandler)
+
         NativeOffloadServer.register("android-clipboard", ClipboardOffloadHandler(this))
-        NativeOffloadServer.register("android-contacts", ContactsOffloadHandler(this))
+
+        val contactsHandler = ContactsOffloadHandler(this)
+        NativeOffloadServer.register("android-contacts", contactsHandler)
+        NativeOffloadServer.register("apple-contacts", contactsHandler)
+        NativeOffloadServer.register("rovie-contacts", contactsHandler)
+
         NativeOffloadServer.register("android-device", DeviceOffloadHandler(this))
         NativeOffloadServer.register("android-location", LocationOffloadHandler(this))
         NativeOffloadServer.register("android-notification", NotificationOffloadHandler(this))
-        NativeOffloadServer.register("android-open", OpenOffloadHandler(this))
+
+        val openHandler = OpenOffloadHandler(this)
+        NativeOffloadServer.register("android-open", openHandler)
+        NativeOffloadServer.register("apple-open", openHandler)
+        NativeOffloadServer.register("rovie-open", openHandler)
+
         NativeOffloadServer.register("android-photos", PhotosOffloadHandler(this))
         NativeOffloadServer.register("android-player", PlayerOffloadHandler())
         NativeOffloadServer.register("android-speak", SpeakOffloadHandler(this))
@@ -760,32 +774,38 @@ class MinisApp : Application(), ImageLoaderFactory {
         NativeOffloadServer.register("android-weather", WeatherOffloadHandler(this))
         // T323: UI-layer automation backed by MinisAccessibilityService.
         NativeOffloadServer.register("android-a11y-cli", AccessibilityOffloadHandler(this))
-        NativeOffloadServer.register("minis-model-use", ModelUseOffloadHandler(this, providerRepository))
+
+        val modelUseHandler = ModelUseOffloadHandler(this, providerRepository)
+        NativeOffloadServer.register("minis-model-use", modelUseHandler)
+        NativeOffloadServer.register("rovie-model-use", modelUseHandler)
+
         // T-config: minis-config — agent-facing settings management
         // (read/write registered ConfigFields with audit + revert).
         // Mirrors iOS `config_offload_register()` in ISHKernel.m.
-        NativeOffloadServer.register(
-            "minis-config",
-            com.openminis.app.sandbox.offload.ConfigOffloadHandler(),
-        )
-        NativeOffloadServer.register("minis-browser-use", BrowserUseOffloadHandler(this))
+        val configHandler = com.openminis.app.sandbox.offload.ConfigOffloadHandler()
+        NativeOffloadServer.register("minis-config", configHandler)
+        NativeOffloadServer.register("rovie-config", configHandler)
+
+        val browserUseHandler = BrowserUseOffloadHandler(this)
+        NativeOffloadServer.register("minis-browser-use", browserUseHandler)
+        NativeOffloadServer.register("rovie-browser-use", browserUseHandler)
+
         // T188: minis-sessions-cli — agent-side query of chat history.
         // Registers next to the other minis-* tools so PRootKernel.
         // installHandlerStubs() picks it up on the next rootfs boot
         // (writes a 17-byte exit-0 stub at /usr/local/bin/minis-sessions-cli
         // so PATH lookup succeeds; PRoot intercepts the execve before
         // the stub runs and routes to this handler).
-        NativeOffloadServer.register(
-            "minis-sessions-cli",
-            SessionsOffloadHandler(
-                chatRepository,
-                // [T-sessions-cli-update] `update --title-auto` = the list's Regenerate Title.
-                titleRegenerator = { id ->
-                    com.openminis.app.ui.sessions.SessionTitleRegenerator(chatRepository, providerRepository, this)
-                        .regenerate(id, origin = "cli")
-                },
-            ),
+        val sessionsHandler = SessionsOffloadHandler(
+            chatRepository,
+            // [T-sessions-cli-update] `update --title-auto` = the list's Regenerate Title.
+            titleRegenerator = { id ->
+                com.openminis.app.ui.sessions.SessionTitleRegenerator(chatRepository, providerRepository, this)
+                    .regenerate(id, origin = "cli")
+            },
         )
+        NativeOffloadServer.register("minis-sessions-cli", sessionsHandler)
+        NativeOffloadServer.register("rovie-sessions-cli", sessionsHandler)
         // [T-android-scheduled-tasks-full] minis-scheduled — create/list/run
         // timed AI tasks (new chat / follow-up / re-run), mirroring the in-app
         // Scheduled Tasks editor and the iOS Shortcuts intent set.

@@ -33,7 +33,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.openminis.app"
+        applicationId = "africa.rovie.mobile"
         minSdk = 26
         targetSdk = 35
         versionCode = 37
@@ -63,7 +63,7 @@ android {
         // prerelease flag and cut a tag at its first '-') see them as version
         // 0 and never offer them. UPDATE_CHANNEL is the channel a fresh
         // install starts on; the user can switch to beta in About.
-        buildConfigField("String", "RELEASE_REPO", "\"OpenMinis/OpenMinis\"")
+        buildConfigField("String", "RELEASE_REPO", "\"rovie-africa/rovie-mobile\"")
         buildConfigField("String", "UPDATE_CHANNEL", "\"stable\"")
 
         ndk {

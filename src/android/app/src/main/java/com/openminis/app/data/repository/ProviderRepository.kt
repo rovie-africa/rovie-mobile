@@ -2725,10 +2725,22 @@ class ProviderRepository(private val context: Context) {
                     // [T-android-model-refresh-visible] Detailed: an HTTP error,
                     // an unparsed shape or an empty list is reported, not
                     // swallowed into "no models" and then "keep the old list".
-                    ProviderType.openAI, ProviderType.openAIResponses ->
-                        OpenAIModelsApi.fetchModelsDetailed(apiKey, baseURL, customUserAgent = instance.customUserAgent, netTag = netTag)
-                            .also { r -> r.error?.let(reportVendorError) }
-                            .models
+                    ProviderType.openAI, ProviderType.openAIResponses -> {
+                        if (com.openminis.app.provider.rovie.RovieChannel.looksLikeRovieBaseURL(instance.customBaseURL ?: baseURL)) {
+                            com.openminis.app.provider.rovie.RovieChannel.fetchModels(
+                                apiKey = apiKey,
+                                baseURL = baseURL,
+                                context = context,
+                                forceRefresh = forceRefresh,
+                                customUserAgent = instance.customUserAgent,
+                                netTag = netTag
+                            )
+                        } else {
+                            OpenAIModelsApi.fetchModelsDetailed(apiKey, baseURL, customUserAgent = instance.customUserAgent, netTag = netTag)
+                                .also { r -> r.error?.let(reportVendorError) }
+                                .models
+                        }
+                    }
                     ProviderType.openRouter -> OpenRouterModelsApi.fetchModels(apiKey, netTag = netTag)
                     // [T-provider-dynamic-catalog-reconcile] xAI: fetch the live
                     // catalog, fall back to the built-in list.

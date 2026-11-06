@@ -3104,6 +3104,9 @@ class OpenAIProvider private constructor(
         for ((key, value) in com.openminis.app.provider.OpenCodeSessionHeader.headersFor(requestUrl, sessionId)) {
             header(key, value)
         }
+        for ((key, value) in com.openminis.app.provider.rovie.RovieChannel.headersFor(requestUrl, sessionId)) {
+            header(key, value)
+        }
         modelOverrides?.customHeaders?.let { headers -> for ((key, value) in headers) header(key, value) }
         return this
     }
@@ -4030,9 +4033,9 @@ class OpenAIProvider private constructor(
         else combined.substring(0, sep) to combined.substring(sep + 1)
     }
 
-    /** Responses-API ids must be ≤64 chars; truncate defensively to avoid 400s. */
+    /** Responses-API ids must be ≤64 chars; truncate defensively to avoid 400s. Preserves IDs containing `__thought__`. */
     private fun capResponsesId(id: String): String =
-        if (id.length <= 64) id else id.substring(0, 64)
+        if (id.contains("__thought__") || id.length <= 64) id else id.substring(0, 64)
 
     /**
      * Derives a stable per-conversation `prompt_cache_key` for the Responses

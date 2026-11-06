@@ -98,6 +98,7 @@ const val WIRE_TOOL_ID_MAX = 40
  * tells them apart with [WireToolIdMap].
  */
 fun wireToolId(raw: String): String {
+    if (raw.contains("__thought__")) return raw
     val head = raw.substringBefore('|')
     val clean = buildString(head.length) {
         var i = 0
@@ -131,8 +132,11 @@ const val KIMI_NATIVE_TOOL_ID_MAX = 80
 fun isKimiNativeToolId(raw: String): Boolean =
     raw.length <= KIMI_NATIVE_TOOL_ID_MAX && KIMI_NATIVE_TOOL_ID.matches(raw)
 
-/** [B02] [base] with `-n` appended, the base shortened so the whole stays within [WIRE_TOOL_ID_MAX]. */
+/** [B02] [base] with `-n` appended, the base shortened so the whole stays within [WIRE_TOOL_ID_MAX]. Preserves IDs containing `__thought__`. */
 fun wireToolIdWithSuffix(base: String, n: Int): String {
+    if (base.contains("__thought__")) {
+        return "$base-$n"
+    }
     val suffix = "-$n"
     return base.take((WIRE_TOOL_ID_MAX - suffix.length).coerceAtLeast(0)) + suffix
 }
@@ -152,7 +156,7 @@ class WireToolIdMap(
     private val taken = HashSet<String>()
 
     fun idFor(raw: String): String = byRaw.getOrPut(raw) {
-        val base = if (keepAsIs(raw)) raw else wireToolId(raw)
+        val base = if (keepAsIs(raw) || raw.contains("__thought__")) raw else wireToolId(raw)
         var id = base
         var n = 2
         while (!taken.add(id)) id = wireToolIdWithSuffix(base, n++)
