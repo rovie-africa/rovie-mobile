@@ -355,6 +355,19 @@ struct ProviderInstanceDetailView: View {
             )
 
             // MARK: Models
+            if instance.isRovieChannel {
+                let freeEntries = RovieChannel.sortFreeEntries(
+                    store.entries(for: instance.id).filter { RovieChannel.isFreeModel($0.baseModel.id) }
+                )
+                if !freeEntries.isEmpty {
+                    Section("Free Models") {
+                        ForEach(freeEntries) { entry in
+                            modelEntryRow(entry, isHidden: entry.isHidden)
+                        }
+                    }
+                }
+            }
+
             Section {
                 modelListSection(instance)
             } header: {
@@ -909,7 +922,12 @@ struct ProviderInstanceDetailView: View {
 
     @ViewBuilder
     private func modelListSection(_ instance: ProviderInstance) -> some View {
-        let entries = store.entries(for: instance.id)
+        let allEntries = store.entries(for: instance.id)
+        let entries: [ModelEntry] = {
+            guard instance.isRovieChannel else { return allEntries }
+            let paid = allEntries.filter { !RovieChannel.isFreeModel($0.baseModel.id) }
+            return paid.isEmpty ? allEntries : paid
+        }()
 
         if entries.isEmpty {
             VStack(spacing: 8) {

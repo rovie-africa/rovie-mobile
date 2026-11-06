@@ -633,6 +633,7 @@ struct UnifiedModelPicker: View {
             // [T-picker-search-cap] Render the capped list; the footer below
             // says so when matches were truncated.
             ForEach(cappedEntriesByInstance, id: \.instance.id) { item in
+                freeModelsSection(item)
                 instanceSection(item)
             }
             if !debouncedSearch.isEmpty, totalSearchMatches > Self.maxSearchResults {
@@ -1335,6 +1336,23 @@ struct UnifiedModelPicker: View {
         }
     }
 
+    @ViewBuilder
+    private func freeModelsSection(_ item: (instance: ProviderInstance, entries: [ModelEntry])) -> some View {
+        let isCollapsed = searchText.isEmpty && collapsedInstanceIds.contains(item.instance.id)
+        if item.instance.isRovieChannel && !isCollapsed {
+            let freeEntries = RovieChannel.sortFreeEntries(
+                item.entries.filter { RovieChannel.isFreeModel($0.baseModel.id) }
+            )
+            if !freeEntries.isEmpty {
+                Section("Free Models") {
+                    ForEach(freeEntries) { entry in
+                        entryRow(entry)
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Instance Section
 
     @ViewBuilder
@@ -1356,7 +1374,12 @@ struct UnifiedModelPicker: View {
             }
             return Array(item.entries.prefix(1))
         }()
-        let visibleEntries = isCollapsed ? collapsedEntry : item.entries
+        let visibleEntries: [ModelEntry] = {
+            let base = isCollapsed ? collapsedEntry : item.entries
+            guard item.instance.isRovieChannel, !isCollapsed else { return base }
+            let paid = base.filter { !RovieChannel.isFreeModel($0.baseModel.id) }
+            return paid.isEmpty ? base : paid
+        }()
         Section {
             ForEach(visibleEntries) { entry in
                 entryRow(entry)

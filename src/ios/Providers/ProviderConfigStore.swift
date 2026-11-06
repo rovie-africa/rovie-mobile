@@ -2203,10 +2203,67 @@ final class ProviderConfigStore: ObservableObject {
         }
     }
 
-    /// Syncs all visible entries of a Rovie Route instance into the "Rovie Default" group.
+    /// Syncs all visible entries of a Rovie Route instance into the "Rovie Free" and "Rovie Default" groups,
+    /// and strips any legacy inline "(Free)" / "(Auto)" suffixes from stored entry display names.
     func syncRovieDefaultGroup(for instanceId: String) {
-        let visibleIds = entries(for: instanceId).filter { !$0.isHidden }.map(\.id)
+        var cleanedAnyName = false
+        for idx in config.modelEntries.indices where config.modelEntries[idx].providerInstanceId == instanceId {
+            let currentName = config.modelEntries[idx].baseModel.displayName
+            let cleanName = RovieChannel.cleanDisplayName(currentName)
+            if cleanName != currentName {
+                let oldModel = config.modelEntries[idx].baseModel
+                var updatedModel = LLMModel(
+                    id: oldModel.id,
+                    displayName: cleanName,
+                    provider: oldModel.provider,
+                    modalityOverride: oldModel.modalityOverride,
+                    contextWindow: oldModel.contextWindow,
+                    maxOutputTokens: oldModel.maxOutputTokens,
+                    supportsReasoning: oldModel.supportsReasoning
+                )
+                updatedModel.limitsReportedByEndpoint = oldModel.limitsReportedByEndpoint
+                let oldEntry = config.modelEntries[idx]
+                config.modelEntries[idx] = ModelEntry(
+                    uuid: oldEntry.uuid,
+                    providerInstanceId: oldEntry.providerInstanceId,
+                    model: updatedModel,
+                    overrides: oldEntry.overrides,
+                    isCustom: oldEntry.isCustom,
+                    isHidden: oldEntry.isHidden,
+                    userModifiedAt: oldEntry.userModifiedAt,
+                    absentSince: oldEntry.absentSince
+                )
+                cleanedAnyName = true
+            }
+        }
+        if cleanedAnyName {
+            save()
+        }
+
+        let visibleEntries = entries(for: instanceId).filter { !$0.isHidden }
+        let visibleIds = visibleEntries.map(\.id)
         guard !visibleIds.isEmpty else { return }
+
+        let freeIds = RovieChannel.sortFreeEntries(
+            visibleEntries.filter { RovieChannel.isFreeModel($0.baseModel.id) }
+        ).map(\.id)
+
+        if !freeIds.isEmpty {
+            if let freeGroup = config.modelGroups.first(where: { $0.name == "Rovie Free" }) {
+                let existingSet = Set(freeGroup.memberEntryIds)
+                let removedSet = Set(freeGroup.removedMembers.keys)
+                let missing = freeIds.filter { !existingSet.contains($0) && !removedSet.contains($0) }
+                if !missing.isEmpty {
+                    var updated = freeGroup
+                    updated.memberEntryIds.append(contentsOf: missing)
+                    updateGroup(updated, orderReason: "rovie-sync")
+                }
+            } else {
+                let freeGroup = ModelGroup(name: "Rovie Free", memberEntryIds: freeIds)
+                config.modelGroups.insert(freeGroup, at: 0)
+                save()
+            }
+        }
 
         if let group = config.modelGroups.first(where: { $0.name == "Rovie Default" }) {
             let existingSet = Set(group.memberEntryIds)
@@ -2221,7 +2278,7 @@ final class ProviderConfigStore: ObservableObject {
                 config.defaultPrimaryGroupId = group.id
                 save()
             }
-        } else if config.modelGroups.isEmpty {
+        } else if !config.modelGroups.contains(where: { $0.name == "Rovie Default" }) {
             let group = ModelGroup(name: "Rovie Default", memberEntryIds: visibleIds)
             addGroup(group)
             if config.defaultPrimaryGroupId == nil {

@@ -43,11 +43,58 @@ enum RovieChannel {
     /// Default model selection for onboarding
     static let defaultModelId = "claude-sonnet-5-5"
 
+    private static let freeModelsDefaultsKey = "rovie.freeModelIds"
+
+    /// Fallback set of free model IDs used before the first catalog fetch completes.
+    /// Updated dynamically from `defaultCatalogURL` (`free: true` / zero cost).
+    static let defaultFreeModelIds: Set<String> = [
+        "rovie-free",
+        "gemini-3.5-flash-lite",
+        "deepseek-v4-flash",
+        "mistral-small",
+        "qwen3.8-flash",
+        "llama-3.3-70b-groq",
+        "qwen-3-32b-cerebras",
+        "deepseek-v3-together",
+        "deepseek-v3-fireworks"
+    ]
+
+    static var freeModelIds: Set<String> {
+        if let saved = UserDefaults.standard.stringArray(forKey: freeModelsDefaultsKey), !saved.isEmpty {
+            return Set(saved).union(["rovie-free"])
+        }
+        return defaultFreeModelIds
+    }
+
+    static func isFreeModel(_ modelId: String) -> Bool {
+        freeModelIds.contains(modelId)
+    }
+
+    static func cleanDisplayName(_ name: String) -> String {
+        var result = name
+        if result.hasSuffix(" (Free)") {
+            result = String(result.dropLast(" (Free)".count))
+        }
+        if result.hasSuffix(" (Auto)") {
+            result = String(result.dropLast(" (Auto)".count))
+        }
+        return result
+    }
+
+    static func sortFreeEntries(_ entries: [ModelEntry]) -> [ModelEntry] {
+        entries.sorted { a, b in
+            let aIsAuto = a.baseModel.id == "rovie-free"
+            let bIsAuto = b.baseModel.id == "rovie-free"
+            if aIsAuto != bIsAuto { return aIsAuto }
+            return false
+        }
+    }
+
     /// Minimal offline-only bootstrap seed used ONLY if the device has no network
     /// connection before the first `/models` fetch completes. All real models
     /// are discovered dynamically from Rovie Route (`defaultCatalogURL` + `/v1/models`).
     static let bootstrapModels: [LLMModel] = [
-        LLMModel(id: "rovie-free", displayName: "Rovie Free (Auto)", provider: "Rovie"),
+        LLMModel(id: "rovie-free", displayName: "Rovie Free", provider: "Rovie"),
         LLMModel(id: defaultModelId, displayName: "Claude Sonnet 5.5", provider: "Anthropic")
     ]
 
@@ -164,7 +211,9 @@ enum RovieChannel {
             return []
         }
 
-        return items.compactMap { item -> LLMModel? in
+        var discoveredFreeIds = Set<String>(["rovie-free"])
+
+        let models = items.compactMap { item -> LLMModel? in
             guard let id = (item["litellmModelName"] as? String) ?? (item["id"] as? String),
                   !id.isEmpty else { return nil }
 
@@ -172,12 +221,10 @@ enum RovieChannel {
             let cost = item["cost"] as? [String: Any]
             let isZeroCost = (cost?["input"] as? Double == 0) && (cost?["output"] as? Double == 0)
             let isFree = (item["free"] as? Bool) == true || isZeroCost
-            let displayName: String
-            if isFree && !rawName.localizedCaseInsensitiveContains("free") {
-                displayName = "\(rawName) (Free)"
-            } else {
-                displayName = rawName
+            if isFree {
+                discoveredFreeIds.insert(id)
             }
+            let displayName = cleanDisplayName(rawName)
 
             let provider = normalizeProviderLabel(item["provider"] as? String)
 
@@ -215,6 +262,11 @@ enum RovieChannel {
             }
             return model
         }
+
+        if !discoveredFreeIds.isEmpty {
+            UserDefaults.standard.set(Array(discoveredFreeIds), forKey: freeModelsDefaultsKey)
+        }
+        return models
     }
 
     /// Attach Rovie tags and dynamic session ID to an OpenAIProvider instance
