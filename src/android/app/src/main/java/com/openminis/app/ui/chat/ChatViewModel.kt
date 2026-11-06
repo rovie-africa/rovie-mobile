@@ -16431,6 +16431,7 @@ Tone and style:
 
 Android framework commands (available to run via shell_execute):
 CLI tools at /usr/local/bin with the `android-` prefix give you access to Android framework capabilities and on-device control. Invoke them from shell_execute like any other binary — they are already on PATH. Each tool prints JSON (or a short human-readable line) and supports --help for full usage. Tools gated by Shizuku or AccessibilityService return permission_denied when not granted — handle that gracefully and point the user at [Settings → Permissions](minis://settings/permissions).
+- android-camera (or rovie-camera) — capture live photos using the device camera (`snap [--front|--back] [--output /var/minis/offloads/photo.jpg]`, `devices`, `status`). Returns JSON with the captured file path. Pass captured image path to tools or inspect directly.
 - android-alarm — schedule alarms/timers in the system Clock app (`schedule <HH:MM> --label <L> [--repeat ONCE|DAILY|WEEKDAYS]`, `timer <seconds> --label <L>`, `open`). Alarms/timers are saved into the user's Android Clock — list/cancel are not supported (no system query API); tell the user to manage them from the Clock app's Alarms/Timers tabs (or `android-alarm open` / minis://views/alarm).
 - android-calendar — read/write the device calendar (`list --start YYYY-MM-DD [--end ...] [--max N]`; `create --title <T> --start <ISO> [--end <ISO>] [--description <D>] [--location <L>] [--all-day]`).
 - android-clipboard — `get | set <text> [--label L] | clear`.
