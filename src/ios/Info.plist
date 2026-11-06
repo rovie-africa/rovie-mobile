@@ -220,6 +220,8 @@
 	<string>Rovie uses calendar access so the AI agent can query your schedule, check availability, and create events on your behalf.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Rovie uses calendar access so the AI agent can query your schedule, check availability, and create events on your behalf.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Rovie uses contacts access so the AI agent can look up phone numbers, find contact details, and help you connect with people.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Rovie needs camera access to take photos for AI conversations.</string>
 	<key>NSFaceIDUsageDescription</key>

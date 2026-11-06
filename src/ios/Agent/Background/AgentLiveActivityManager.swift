@@ -130,6 +130,10 @@ final class AgentLiveActivityManager {
         (UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool) ?? true
     }
 
+    var isAvailable: Bool {
+        Self.isActivityKitAvailable && Self.isUserEnabled
+    }
+
     func startActivity(sessions: [LiveSessionSnapshot]) {
         guard Self.isActivityKitAvailable, Self.isUserEnabled else { return }
         if #available(iOS 16.2, *) {

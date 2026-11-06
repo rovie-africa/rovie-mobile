@@ -55,6 +55,9 @@ static NSString *const AOJITEnabledDefaultsKey = @"aojitEnabled";
 #import <SystemConfiguration/SystemConfiguration.h>
 #import "FFmpegOffload.h"
 #import "CalendarOffload.h"
+#import "ContactsOffload.h"
+#import "ShortcutsOffload.h"
+#import "ActivityOffload.h"
 #import "LocationOffload.h"
 #import "WeatherOffload.h"
 #import "VisionOffload.h"
@@ -1418,6 +1421,9 @@ static BOOL ish_is_debugger_attached(void) {
     // 9. Register native binary bindings (ffmpeg, etc.)
     ffmpeg_offload_register();
     calendar_offload_register();
+    contacts_offload_register();
+    shortcuts_offload_register();
+    activity_offload_register();
     location_offload_register();
     weather_offload_register();
     vision_offload_register();
