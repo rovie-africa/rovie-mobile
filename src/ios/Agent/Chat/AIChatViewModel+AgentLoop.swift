@@ -88,6 +88,7 @@ extension AIChatViewModel {
     }
 
     func runAgentLoop(resumingAt existingMsgIdx: Int? = nil, committedBlocks: Int? = nil) async throws {
+        let loopStartedAt = Date()
         do {
             try await runAgentLoopCore(resumingAt: existingMsgIdx, committedBlocks: committedBlocks)
         } catch {
@@ -99,7 +100,9 @@ extension AIChatViewModel {
             // exactly as before.
             let text = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
             noteContextOverflow(errorText: text, modelId: nil)
-            throw error
+            // [RovieAccess] Every caller's catch renders this error, so the
+            // classification lives here once rather than at each of them.
+            throw classifyRovieAccessFailure(error, since: loopStartedAt)
         }
     }
 

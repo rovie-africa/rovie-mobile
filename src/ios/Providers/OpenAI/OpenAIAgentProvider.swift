@@ -344,6 +344,11 @@ final class OpenAIAgentProvider: AgentProvider {
                             let message = error["message"] as? String ?? "Unknown streaming error"
                             let code = error["code"] as? Int
                             logger.error("SSE stream error: \(message)")
+                            // [RovieAccess] A gateway can also refuse mid-stream.
+                            if RovieChannel.looksLikeRovieBaseURL(self.provider.customBaseURL),
+                               let issue = RovieChannel.accessIssue(statusCode: code ?? -1, body: payload, modelId: self.provider.model.id) {
+                                RovieAccessMonitor.shared.record(issue)
+                            }
                             throw LLMError.providerError(message: "[\(code ?? -1)] \(message)")
                         }
 

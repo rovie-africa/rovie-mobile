@@ -33,7 +33,7 @@ struct RovieWalletBalance: Codable, Sendable {
             formatter.currencySymbol = localCurrency + " "
         }
         
-        return formatter.string(from: NSNumber(value: availableLocal)) ?? "\(localCurrency) \(Int(availableLocal))"
+        return formatter.string(from: NSNumber(value: max(0, availableLocal))) ?? "\(localCurrency) \(Int(max(0, availableLocal)))"
     }
 }
 

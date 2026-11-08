@@ -1115,6 +1115,12 @@ struct AIChatView: View {
             }
             .presentationDetents([.large])
         }
+        // [RovieAccess] Empty wallet / saturated free model → top-up drawer.
+        .modifier(RovieTopUpSheetModifier(vm: vm, onChooseModel: {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                showModelPicker = true
+            }
+        }))
         .sheet(isPresented: $showTokenUsage) {
             TokenUsageSheet(vm: cached.vm)
                 .presentationDetents([.fraction(0.8), .large])

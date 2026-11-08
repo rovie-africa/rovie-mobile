@@ -626,6 +626,8 @@
 		ROV000001 /* RovieChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ROV000011 /* RovieChannel.swift */; };
 		ROV000002 /* RovieWalletClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ROV000012 /* RovieWalletClient.swift */; };
 		ROV000003 /* RovieAuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = ROV000013 /* RovieAuthSession.swift */; };
+		ROV000004 /* RovieAccessIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = ROV000014 /* RovieAccessIssue.swift */; };
+		ROV000005 /* AIChatViewModel+RovieAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = ROV000015 /* AIChatViewModel+RovieAccess.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1428,6 +1430,8 @@
 		ROV000011 /* RovieChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RovieChannel.swift; sourceTree = "<group>"; };
 		ROV000012 /* RovieWalletClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RovieWalletClient.swift; sourceTree = "<group>"; };
 		ROV000013 /* RovieAuthSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RovieAuthSession.swift; sourceTree = "<group>"; };
+		ROV000014 /* RovieAccessIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RovieAccessIssue.swift; sourceTree = "<group>"; };
+		ROV000015 /* AIChatViewModel+RovieAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AIChatViewModel+RovieAccess.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2358,6 +2362,7 @@
 				E5VMSPL016R /* LLMProviderError.swift */,
 				E5PPR0011 /* AIChatViewModel+ProgrammaticPrompt.swift */,
 				E5VMB0012 /* AIChatViewModel+Fallback.swift */,
+				ROV000015 /* AIChatViewModel+RovieAccess.swift */,
 				E5VMB0013 /* AIChatViewModel+Misc.swift */,
 				E5VMB0014 /* AIChatViewModel+RequestBudget.swift */,
 				E5VMB0015 /* ChatModels.swift */,
@@ -2713,6 +2718,7 @@
 				ROV000011 /* RovieChannel.swift */,
 				ROV000012 /* RovieWalletClient.swift */,
 				ROV000013 /* RovieAuthSession.swift */,
+				ROV000014 /* RovieAccessIssue.swift */,
 			);
 			path = Rovie;
 			sourceTree = "<group>";
@@ -3409,6 +3415,8 @@
 				ROV000001 /* RovieChannel.swift in Sources */,
 				ROV000002 /* RovieWalletClient.swift in Sources */,
 				ROV000003 /* RovieAuthSession.swift in Sources */,
+				ROV000004 /* RovieAccessIssue.swift in Sources */,
+				ROV000005 /* AIChatViewModel+RovieAccess.swift in Sources */,
 				E59000001 /* AgentProvider.swift in Sources */,
 				E59000002 /* AnthropicAgentProvider.swift in Sources */,
 				E59000003 /* GeminiAgentProvider.swift in Sources */,

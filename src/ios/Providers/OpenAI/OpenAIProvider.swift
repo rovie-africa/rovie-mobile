@@ -2300,6 +2300,12 @@ final class OpenAIProvider: LLMProvider {
     }
 
     func mapHTTPError(statusCode: Int, body: String) -> LLMError {
+        // [RovieAccess] Note wallet / free-tier failures for the chat turn to
+        // surface as the top-up drawer. The mapping below is unchanged.
+        if RovieChannel.looksLikeRovieBaseURL(customBaseURL),
+           let issue = RovieChannel.accessIssue(statusCode: statusCode, body: body, modelId: model.id) {
+            RovieAccessMonitor.shared.record(issue)
+        }
         if statusCode == 401 || statusCode == 403 { return .invalidAPIKey(detail: "HTTP \(statusCode): \(String(body.prefix(200)))") }
         if statusCode == 429 { return .rateLimited }
 

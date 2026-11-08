@@ -1103,6 +1103,9 @@ final class AIChatViewModel: ObservableObject, SpeechControlling {
     /// re-evaluates the view.
     var hasCompletedInitialLoad = false
     @Published var errorMessage: String?
+    /// [RovieAccess] Set when a turn failed on an empty Rovie wallet or a
+    /// saturated free model; drives the top-up drawer. Cleared on dismiss.
+    @Published var rovieAccessIssue: RovieAccessIssue?
 
     /// [T-ios-retry-keyboard] Marks the in-flight turn as one the user started
     /// by tapping Retry / Resume on an EXISTING failed message, rather than by
