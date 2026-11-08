@@ -1,6 +1,5 @@
 import SwiftUI
 
-ontinu  //
 //  RovieTopUpSheet.swift
 //  Rovie Mobile - chat page (AIChatView)
 //
