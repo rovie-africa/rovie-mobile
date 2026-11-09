@@ -4,10 +4,9 @@ import SwiftUI
 //  Rovie Mobile - chat page (AIChatView)
 //
 //  [RovieAccess] Bottom drawer raised when a turn fails on an empty Rovie
-//  wallet or a saturated free model. Shows the live balance, sends the user to
-//  the Route dashboard to top up, and picks the turn back up when they return.
-//
-//  Map of the AIChatView files: AIChatView/AIChatView.swift.
+//  wallet or a saturated free model. Communicates the status, shows the real
+//  balance, markets Route plans/top-up tiers without slop or pills, and resumes
+//  the conversation when funded.
 //
 
 // MARK: - Host modifier
@@ -43,15 +42,28 @@ struct RovieTopUpSheet: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Selected plan amount
+    @State private var selectedAmount: Int = 10_000
     /// Balance (USD) when the drawer opened; a top-up is any rise above it.
     @State private var baselineUsd: Double?
-    /// The balance shown was fetched after this drawer opened, not left over
-    /// from an earlier screen.
+    /// Whether fresh balance has arrived since the drawer opened.
     @State private var hasFreshBalance = false
     /// The user went to the dashboard; refresh when the app comes back.
     @State private var leftForTopUp = false
 
-    // MARK: State
+    // MARK: Currency & Presets
+
+    private var activeCurrency: String {
+        wallet.currentBalance?.localCurrency ?? RovieWalletBalance.defaultCurrencyCode
+    }
+
+    private var presets: [RovieTopUpPreset] {
+        RovieTopUpPreset.presets(for: activeCurrency)
+    }
+
+    private var selectedPreset: RovieTopUpPreset? {
+        presets.first(where: { $0.amount == selectedAmount }) ?? presets.first
+    }
 
     private var availableUsd: Double? { wallet.currentBalance?.availableUsd }
 
@@ -68,11 +80,11 @@ struct RovieTopUpSheet: View {
     }
 
     private var title: String {
-        switch (issue, isFunded) {
-        case (.insufficientBalance, false): return AppLocalized("Balance too low")
-        case (.insufficientBalance, true): return AppLocalized("Wallet topped up")
-        case (.freeModelLimited, _): return AppLocalized("Free limit reached")
-        case (.freeModelUnavailable, _): return AppLocalized("Free model unavailable")
+        if isFunded { return AppLocalized("Ready to Continue") }
+        switch issue {
+        case .insufficientBalance: return AppLocalized("Wallet Empty")
+        case .freeModelLimited: return AppLocalized("Daily Limit Reached")
+        case .freeModelUnavailable: return AppLocalized("Model Busy")
         }
     }
 
@@ -81,25 +93,36 @@ struct RovieTopUpSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Text(title)
-                .font(.title3.weight(.semibold))
+                .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
                 .contentTransition(.opacity)
-                .padding(.top, 32)
+                .padding(.top, 28)
 
-            balance
-                .padding(.top, 10)
-                .padding(.bottom, 28)
+            balanceHero
+                .padding(.top, 8)
+                .padding(.bottom, 20)
+
+            if !isFunded {
+                planSection
+                    .padding(.bottom, 16)
+
+                featureHighlight
+                    .padding(.bottom, 22)
+            }
 
             actions
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity)
-        .presentationDetents([.height(285)])
+        .presentationDetents([.height(isFunded ? 300 : 440)])
         .presentationDragIndicator(.visible)
         .animation(.easeInOut(duration: 0.25), value: isFunded)
-        .animation(.easeInOut(duration: 0.25), value: hasFreshBalance)
-        .task { await refreshBalance() }
+        .animation(.easeInOut(duration: 0.25), value: selectedAmount)
+        .task {
+            syncDefaultPreset()
+            await refreshBalance()
+        }
         .onChange(of: isFunded) { funded in
             if funded {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -111,49 +134,121 @@ struct RovieTopUpSheet: View {
         }
     }
 
-    private var balance: some View {
-        Text(hasFreshBalance ? (wallet.currentBalance?.formattedLocalAvailable ?? "—") : "₦0,000")
-            .font(.system(size: 48, weight: .semibold, design: .rounded))
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .foregroundStyle(
-                hasFreshBalance && wallet.currentBalance == nil ? .secondary : .primary
-            )
-            .contentTransition(.opacity)
-            .redacted(reason: hasFreshBalance ? [] : .placeholder)
-            .opacity(leftForTopUp && wallet.isLoading ? 0.4 : 1)
+    // MARK: Views
+
+    private var balanceHero: some View {
+        Group {
+            if isFunded {
+                Text(wallet.currentBalance?.formattedLocalAvailable ?? "₦0")
+                    .foregroundStyle(.primary)
+            } else {
+                switch issue {
+                case .insufficientBalance:
+                    Text(wallet.currentBalance?.formattedLocalAvailable ?? "₦0")
+                        .foregroundStyle(hasFreshBalance && (wallet.currentBalance?.availableLocal ?? 0) <= 0 ? .secondary : .primary)
+                case .freeModelLimited:
+                    Text(AppLocalized("0 Free Prompts"))
+                        .font(.title.weight(.bold))
+                        .foregroundStyle(.secondary)
+                case .freeModelUnavailable:
+                    Text(AppLocalized("Community Busy"))
+                        .font(.title.weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .font(.system(size: 42, weight: .bold, design: .rounded))
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
+        .contentTransition(.opacity)
+        .opacity(wallet.isLoading && !hasFreshBalance ? 0.4 : 1)
+    }
+
+    private var planSection: some View {
+        HStack(spacing: 8) {
+            ForEach(presets) { preset in
+                Button {
+                    selectedAmount = preset.amount
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Text(preset.formatted)
+                        .font(.system(size: 15, weight: selectedAmount == preset.amount ? .bold : .medium))
+                        .frame(maxWidth: .infinity, minHeight: 46)
+                        .foregroundStyle(selectedAmount == preset.amount ? Color.primary : Color.secondary)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(selectedAmount == preset.amount ? Color(uiColor: .secondarySystemBackground) : Color(uiColor: .tertiarySystemBackground).opacity(0.5))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(selectedAmount == preset.amount ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var featureHighlight: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                Text("Claude 3.7 · GPT-4o · DeepSeek")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+            }
+            Spacer()
+            HStack(spacing: 4) {
+                Image(systemName: "bolt.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.orange)
+                Text("Zero limits")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(uiColor: .secondarySystemBackground).opacity(0.6))
+        )
     }
 
     @ViewBuilder
     private var actions: some View {
         VStack(spacing: 6) {
             primaryButton
-            secondaryButton
+            secondaryButtons
         }
     }
 
     @ViewBuilder
     private var primaryButton: some View {
         if isFunded {
-            switch issue {
-            case .insufficientBalance:
-                drawerButton(AppLocalized("Continue")) { finish(then: onRetry) }
-            case .freeModelLimited, .freeModelUnavailable:
-                drawerButton(AppLocalized("Choose a model")) { finish(then: onChooseModel) }
-            }
+            drawerButton(AppLocalized("Continue")) { finish(then: onRetry) }
         } else {
-            drawerButton(AppLocalized("Top up"), systemImage: "arrow.up.right", action: openTopUp)
+            let label = "\(AppLocalized("Top up")) \(selectedPreset?.formatted ?? "")"
+            drawerButton(label, systemImage: "arrow.up.right", action: openTopUp)
         }
     }
 
     @ViewBuilder
-    private var secondaryButton: some View {
-        switch issue {
-        case .insufficientBalance:
-            secondary(AppLocalized("Not now")) { dismiss() }
-        case .freeModelLimited, .freeModelUnavailable:
-            secondary(AppLocalized("Try again")) { finish(then: onRetry) }
+    private var secondaryButtons: some View {
+        if isFunded {
+            secondary(AppLocalized("Dismiss")) { dismiss() }
+        } else {
+            switch issue {
+            case .insufficientBalance:
+                secondary(AppLocalized("Switch to free model")) { finish(then: onChooseModel) }
+                secondary(AppLocalized("Not now")) { dismiss() }
+            case .freeModelLimited, .freeModelUnavailable:
+                secondary(AppLocalized("Choose another model")) { finish(then: onChooseModel) }
+                secondary(AppLocalized("Not now")) { dismiss() }
+            }
         }
     }
 
@@ -183,7 +278,7 @@ struct RovieTopUpSheet: View {
         Button(action: action) {
             Text(label)
                 .font(.body.weight(.medium))
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: 36)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -193,7 +288,7 @@ struct RovieTopUpSheet: View {
     // MARK: Actions
 
     private func openTopUp() {
-        guard let url = RovieChannel.topUpURL else { return }
+        guard let url = RovieChannel.topUpURL(amount: selectedAmount, currency: activeCurrency) else { return }
         if baselineUsd == nil { baselineUsd = availableUsd ?? 0 }
         leftForTopUp = true
         openURL(url)
@@ -204,12 +299,14 @@ struct RovieTopUpSheet: View {
         next()
     }
 
-    private func refreshBalance() async {
-        guard let key = RovieChannel.storedAPIKey() else {
-            hasFreshBalance = true
-            return
+    private func syncDefaultPreset() {
+        if let defaultOption = presets.dropFirst().first ?? presets.first {
+            selectedAmount = defaultOption.amount
         }
-        await wallet.refreshBalance(apiKey: key)
+    }
+
+    private func refreshBalance() async {
+        await wallet.refreshBalance()
         if baselineUsd == nil, wallet.lastError == nil {
             baselineUsd = availableUsd
         }

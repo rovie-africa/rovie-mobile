@@ -84,7 +84,18 @@ final class RovieAccessMonitor: @unchecked Sendable {
 extension RovieChannel {
 
     /// Where the user tops up their wallet.
-    static var topUpURL: URL? { URL(string: "\(defaultPortalURL)/dashboard/billing") }
+    static var topUpURL: URL? { topUpURL() }
+
+    static func topUpURL(amount: Int? = nil, currency: String? = nil) -> URL? {
+        guard var components = URLComponents(string: "\(defaultPortalURL)/dashboard/billing") else {
+            return nil
+        }
+        var items: [URLQueryItem] = []
+        if let amount { items.append(URLQueryItem(name: "amount", value: "\(amount)")) }
+        if let currency { items.append(URLQueryItem(name: "currency", value: currency)) }
+        if !items.isEmpty { components.queryItems = items }
+        return components.url
+    }
 
     /// Error codes the gateway (and the LiteLLM proxy behind it) uses for an
     /// empty wallet or an exhausted key budget.
@@ -126,11 +137,30 @@ extension RovieChannel {
 
     /// The stored Rovie Route API key, if the user is signed in.
     @MainActor
-    static func storedAPIKey() -> String? {
-        guard let instance = ProviderConfigStore.shared.instances.first(where: { $0.isRovieChannel }),
-              let key = ProviderKeychainHelper.loadAPIKey(instanceId: instance.id),
-              !key.isEmpty else { return nil }
-        return key
+    static func storedAPIKey(preferredInstanceId: String? = nil) -> String? {
+        let store = ProviderConfigStore.shared
+
+        if let preferredId = preferredInstanceId,
+           let key = ProviderKeychainHelper.loadAPIKey(instanceId: preferredId),
+           !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return key.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        for instance in store.instances where instance.isRovieChannel {
+            if let key = ProviderKeychainHelper.loadAPIKey(instanceId: instance.id),
+               !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return key.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+
+        for instance in store.instances where instance.label.localizedCaseInsensitiveContains("rovie") {
+            if let key = ProviderKeychainHelper.loadAPIKey(instanceId: instance.id),
+               !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return key.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+
+        return nil
     }
 }
 
