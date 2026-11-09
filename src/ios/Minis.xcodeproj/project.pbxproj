@@ -30,6 +30,7 @@
 		9214E78B060BCD8BA7E118D4 /* NotificationCategoryCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7227A3A4F8E20ED979981C /* NotificationCategoryCenter.swift */; };
 		A11Y0001 /* ChatAccessibilityAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11Y0002 /* ChatAccessibilityAnnouncer.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* SystemVoiceCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* SystemVoiceCatalog.swift */; };
+		A1B2C3D4E5F60718293A4B5E /* KokoroVoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5F /* KokoroVoiceEngine.swift */; };
 		AA0838A02F3B941A00049557 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0838A12F3B941A00049557 /* AboutView.swift */; };
 		AA0838C02F3B941A00049557 /* RootfsResetButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0838BF2F3B941A00049557 /* RootfsResetButton.swift */; };
 		AA0838C32F3B941A00049557 /* RootfsManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0838BE2F3B941A00049557 /* RootfsManagementView.swift */; };
@@ -356,6 +357,8 @@
 		E5L200AB2 /* ActivityOffloadBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5L200AB1 /* ActivityOffloadBridge.swift */; };
 		E5L200CM2 /* CameraOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200CM1 /* CameraOffload.m */; };
 		E5L200CB2 /* CameraOffloadBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5L200CB1 /* CameraOffloadBridge.swift */; };
+		E5L200SK2 /* SketchOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200SK1 /* SketchOffload.m */; };
+		E5L200SB2 /* SketchOffloadBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5L200SB1 /* SketchOffloadBridge.swift */; };
 		E5L200BT2 /* BluetoothOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200BT1 /* BluetoothOffload.m */; };
 		E5L200BU2 /* BrowserUseOffload.m in Sources */ = {isa = PBXBuildFile; fileRef = E5L200BU1 /* BrowserUseOffload.m */; };
 		E5L200BU4 /* BrowserUseOffloadBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5L200BU3 /* BrowserUseOffloadBridge.swift */; };
@@ -736,6 +739,7 @@
 		8A85BF57B9450AF0807ACDDE /* UserAskCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAskCenter.swift; sourceTree = "<group>"; };
 		A11Y0002 /* ChatAccessibilityAnnouncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAccessibilityAnnouncer.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* SystemVoiceCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SystemVoiceCatalog.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5F /* KokoroVoiceEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KokoroVoiceEngine.swift; sourceTree = "<group>"; };
 		AA0838A12F3B941A00049557 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		AA0838BE2F3B941A00049557 /* RootfsManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootfsManagementView.swift; sourceTree = "<group>"; };
 		AA0838BF2F3B941A00049557 /* RootfsResetButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootfsResetButton.swift; sourceTree = "<group>"; };
@@ -1176,6 +1180,9 @@
 		E5L200CM0 /* CameraOffload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraOffload.h; sourceTree = "<group>"; };
 		E5L200CM1 /* CameraOffload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CameraOffload.m; sourceTree = "<group>"; };
 		E5L200CB1 /* CameraOffloadBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraOffloadBridge.swift; sourceTree = "<group>"; };
+		E5L200SK0 /* SketchOffload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SketchOffload.h; sourceTree = "<group>"; };
+		E5L200SK1 /* SketchOffload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SketchOffload.m; sourceTree = "<group>"; };
+		E5L200SB1 /* SketchOffloadBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SketchOffloadBridge.swift; sourceTree = "<group>"; };
 		E5L200BT0 /* BluetoothOffload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BluetoothOffload.h; sourceTree = "<group>"; };
 		E5L200BT1 /* BluetoothOffload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BluetoothOffload.m; sourceTree = "<group>"; };
 		E5L200BU0 /* BrowserUseOffload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowserUseOffload.h; sourceTree = "<group>"; };
@@ -1532,6 +1539,7 @@
 				2BB45FC87D39AE9AB4495BE9 /* VoiceProvider+Vendors.swift */,
 				88993FC8E3F0199C6638F664 /* VoiceProvider+System.swift */,
 				A1B2C3D4E5F60718293A4B5D /* SystemVoiceCatalog.swift */,
+				A1B2C3D4E5F60718293A4B5F /* KokoroVoiceEngine.swift */,
 				F2941B643B8A2F048A2B154E /* VoiceProviderFactory.swift */,
 				86DD7E40E65177AB39C55882 /* VoiceProviderResolver.swift */,
 				E5VC00016 /* CorrectionStrategy.swift */,
@@ -2214,6 +2222,9 @@
 				E5L200CM0 /* CameraOffload.h */,
 				E5L200CM1 /* CameraOffload.m */,
 				E5L200CB1 /* CameraOffloadBridge.swift */,
+				E5L200SK0 /* SketchOffload.h */,
+				E5L200SK1 /* SketchOffload.m */,
+				E5L200SB1 /* SketchOffloadBridge.swift */,
 				E5L2000F3 /* ModelUseOffloadBridge.swift */,
 			);
 			path = NativeOffloads;
@@ -3403,6 +3414,8 @@
 				E5L200AB2 /* ActivityOffloadBridge.swift in Sources */,
 				E5L200CM2 /* CameraOffload.m in Sources */,
 				E5L200CB2 /* CameraOffloadBridge.swift in Sources */,
+				E5L200SK2 /* SketchOffload.m in Sources */,
+				E5L200SB2 /* SketchOffloadBridge.swift in Sources */,
 				E5L2000F4 /* ModelUseOffloadBridge.swift in Sources */,
 				E5D00037 /* AgentLoopModelsView.swift in Sources */,
 				E54000001 /* DebugServer.swift in Sources */,
@@ -3651,6 +3664,7 @@
 				B02B7ADBAB47BDB33F664A21 /* VoiceProvider+Vendors.swift in Sources */,
 				21FED4B7BB6F6D9476C9992E /* VoiceProvider+System.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* SystemVoiceCatalog.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5E /* KokoroVoiceEngine.swift in Sources */,
 				241D530017827D7F0EB604DE /* VoiceProviderFactory.swift in Sources */,
 				489FD1413F4EE806C3F0C713 /* VoiceProviderResolver.swift in Sources */,
 				57E63023C8A9A3C505DF411B /* VoiceActivityDetector.swift in Sources */,

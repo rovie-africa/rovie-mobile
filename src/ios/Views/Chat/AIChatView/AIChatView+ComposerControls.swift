@@ -42,6 +42,8 @@ extension AIChatView {
 
         if #available(iOS 17, *) {
             Menu {
+                Button { RovieSketchSessionModel.shared.openBlank(chatSessionId: vm.sessionId) } label: { Label("Sketch Pad", systemImage: "pencil.and.outline") }
+                Divider()
                 Button { showCamera = true } label: { Label("Take Photo", systemImage: "camera") }
                 Button { showPhotoPicker = true } label: { Label("Choose Photos & Videos", systemImage: "photo.on.rectangle") }
                 Button { showDocumentPicker = true } label: { Label("Add File", systemImage: "doc") }
@@ -53,6 +55,7 @@ extension AIChatView {
                 icon
             }
             .confirmationDialog("Add Attachment", isPresented: $showAttachmentMenu) {
+                Button { RovieSketchSessionModel.shared.openBlank(chatSessionId: vm.sessionId) } label: { Label("Sketch Pad", systemImage: "pencil.and.outline") }
                 Button { showCamera = true } label: { Label("Take Photo", systemImage: "camera") }
                 Button { showPhotoPicker = true } label: { Label("Choose Photos & Videos", systemImage: "photo.on.rectangle") }
                 Button { showDocumentPicker = true } label: { Label("Add File", systemImage: "doc") }

@@ -145,9 +145,17 @@ enum SystemVoiceCatalog {
         return "\(voice.name) (\(inner))\(qualityStars(voice.quality))"
     }
 
-    /// Dynamic TTS models — one per filtered/sorted voice. Regenerated each call.
+    /// Dynamic TTS models — Kokoro-82M offline presets first, followed by filtered/sorted Apple voices.
     static func ttsModels() -> [LLMModel] {
-        filteredAndSortedVoices().map { voice in
+        let kokoroModels: [LLMModel] = KokoroVoiceEngine.presets.map { preset in
+            LLMModel(
+                id: preset.id,
+                displayName: "\(preset.name) (\(preset.accent))",
+                provider: SystemVoiceProvider.builtinProviderId,
+                modalityOverride: [.audioOutput]
+            )
+        }
+        let appleModels: [LLMModel] = filteredAndSortedVoices().map { voice in
             LLMModel(
                 id: voice.identifier,
                 displayName: displayName(for: voice),
@@ -155,6 +163,7 @@ enum SystemVoiceCatalog {
                 modalityOverride: [.audioOutput]
             )
         }
+        return kokoroModels + appleModels
     }
 
     // MARK: - Synthesize a ModelEntry from a System composite id
@@ -178,12 +187,21 @@ enum SystemVoiceCatalog {
 
     /// Resolve a System engine composite id to its virtual ModelEntry, or nil if
     /// the id isn't a System id. Handles: a specific voice ("…/com.apple.voice.…"),
-    /// the TTS auto default ("…/system-tts"), ASR online/offline ("…/system-asr-
-    /// online|offline"), and the legacy/bare ASR sentinel.
+    /// Kokoro-82M voices ("…/af_heart", etc.), the TTS auto default ("…/system-tts"),
+    /// ASR online/offline ("…/system-asr-online|offline"), and the legacy/bare ASR sentinel.
     static func entry(forCompositeId id: String) -> ModelEntry? {
         let sentinel = SystemVoiceProvider.builtinProviderId
         guard id == sentinel || id.hasPrefix(sentinel + "/") else { return nil }
         let suffix = id == sentinel ? "" : String(id.dropFirst(sentinel.count + 1))
+
+        if KokoroVoiceEngine.isKokoroVoiceId(suffix) {
+            let preset = KokoroVoiceEngine.preset(for: suffix)
+            return systemEntry(
+                modelId: preset.id,
+                displayName: "\(preset.name) (\(preset.accent))",
+                modality: [.audioOutput]
+            )
+        }
 
         // A specific TTS voice id (contains a dot).
         if suffix.contains(".") {

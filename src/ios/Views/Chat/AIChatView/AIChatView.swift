@@ -1121,6 +1121,7 @@ struct AIChatView: View {
                 showModelPicker = true
             }
         }))
+        .modifier(RovieSketchPadSheetModifier())
         .sheet(isPresented: $showTokenUsage) {
             TokenUsageSheet(vm: cached.vm)
                 .presentationDetents([.fraction(0.8), .large])

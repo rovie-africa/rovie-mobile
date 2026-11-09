@@ -57,6 +57,7 @@ static NSString *const AOJITEnabledDefaultsKey = @"aojitEnabled";
 #import "CalendarOffload.h"
 #import "ContactsOffload.h"
 #import "CameraOffload.h"
+#import "SketchOffload.h"
 #import "ShortcutsOffload.h"
 #import "ActivityOffload.h"
 #import "LocationOffload.h"
@@ -1426,6 +1427,7 @@ static BOOL ish_is_debugger_attached(void) {
     shortcuts_offload_register();
     activity_offload_register();
     camera_offload_register();
+    sketch_offload_register();
     location_offload_register();
     weather_offload_register();
     vision_offload_register();

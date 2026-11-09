@@ -137,6 +137,8 @@ final class OffloadPermissionManager: ObservableObject {
         .init(name: "apple-speech", displayLabel: "Speech", description: "", category: .media, showInSettings: false),
         .init(name: "apple-player", displayLabel: "Player", description: "", category: .media, showInSettings: false),
         .init(name: "apple-media", displayLabel: "Media", description: "", category: .media, showInSettings: false),
+        .init(name: "apple-sketch", displayLabel: "Sketch Pad", description: "", category: .media, showInSettings: false),
+        .init(name: "rovie-sketch", displayLabel: "Sketch Pad", description: "", category: .media, showInSettings: false),
         // System — no personal data, always bypass
         .init(name: "apple-device", displayLabel: "Device", description: "", category: .system, showInSettings: false),
         .init(name: "apple-notification", displayLabel: "Notification", description: "", category: .system, showInSettings: false),

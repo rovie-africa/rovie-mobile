@@ -279,9 +279,17 @@ final class SystemVoiceProvider: NSObject, VoiceInputCapable, VoiceOutputCapable
 
     // MARK: - Voice output (AVSpeechSynthesizer)
 
-    /// Render the utterance to WAV Data via the iOS 13+ write API. The
-    /// completion is signalled by a final zero-length buffer.
+    /// Render the utterance to WAV Data via Kokoro-82M or the iOS 13+ write API.
     func synthesize(_ request: VoiceOutputRequest) async throws -> Data {
+        let candidateVoice = request.model ?? request.voice
+        if KokoroVoiceEngine.isKokoroVoiceId(candidateVoice) {
+            return try await KokoroVoiceEngine.synthesizeWAV(
+                text: request.input,
+                voiceId: candidateVoice,
+                speed: request.speed ?? 1.0
+            )
+        }
+
         let utterance = AVSpeechUtterance(string: request.input)
         utterance.rate  = mapSpeed(request.speed ?? 1.0)
         utterance.voice = Self.resolveVoice(request: request, fallbackLocale: locale)
