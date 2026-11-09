@@ -248,6 +248,11 @@ enum SystemVoiceCatalog {
     static func startObservingVoiceChanges() {
         SystemVoiceRoster.shared.startObserving()
     }
+
+    @MainActor
+    static func notifyVoicesChanged() {
+        SystemVoiceRoster.shared.bump()
+    }
 }
 
 // MARK: - Observable roster revision
@@ -262,6 +267,10 @@ final class SystemVoiceRoster: ObservableObject {
 
     /// Bumped each time the available-voices roster changes.
     @Published private(set) var revision = 0
+
+    func bump() {
+        revision &+= 1
+    }
 
     private let logger = AppLogger(category: "SystemVoiceRoster")
     private var observerInstalled = false

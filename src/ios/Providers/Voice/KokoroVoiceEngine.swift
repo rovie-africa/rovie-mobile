@@ -55,9 +55,12 @@ final class KokoroVoiceEngine: ObservableObject {
     @Published private(set) var isOfflinePackInstalled: Bool = false
     @Published private(set) var isDownloadingPack: Bool = false
     @Published private(set) var downloadProgress: Double = 0.0
+    @Published private(set) var downloadedMB: Double = 0.0
+    @Published private(set) var totalMB: Double = 88.1
     @Published private(set) var lastStatusMessage: String? = nil
 
     private var downloadTask: Task<Void, Never>?
+    private var activeSession: URLSession?
 
     private init() {
         let saved = UserDefaults.standard.string(forKey: Self.selectedVoiceKey) ?? "af_heart"
@@ -113,10 +116,12 @@ final class KokoroVoiceEngine: ObservableObject {
     func downloadOfflinePack() {
         guard !isDownloadingPack else { return }
         isDownloadingPack = true
-        downloadProgress = 0.02
+        downloadProgress = 0.01
+        downloadedMB = 0.0
+        totalMB = 88.1
         lastStatusMessage = nil
 
-        downloadTask = Task {
+        downloadTask = Task.detached(priority: .utility) { [weak self] in
             do {
                 let dir = Self.kokoroDirectory
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -127,9 +132,18 @@ final class KokoroVoiceEngine: ObservableObject {
                     throw URLError(.badURL)
                 }
 
-                let (tempURL, response) = try await Self.downloadWithProgress(from: remoteURL) { [weak self] frac in
-                    Task { @MainActor in
-                        self?.downloadProgress = max(0.05, min(0.88, frac * 0.88))
+                let (tempURL, response) = try await Self.downloadWithProgress(from: remoteURL) { frac, writtenMB, expectedMB in
+                    let scaled = max(0.01, min(0.88, frac * 0.88))
+                    Task { @MainActor [weak self] in
+                        guard let self, self.isDownloadingPack else { return }
+                        // Only publish when integer percentage or 0.5 MB changes to keep UI scrolling 100% smooth
+                        if Int(scaled * 100) != Int(self.downloadProgress * 100) || abs(writtenMB - self.downloadedMB) >= 0.5 {
+                            self.downloadProgress = scaled
+                            self.downloadedMB = writtenMB
+                            if expectedMB > 1.0 {
+                                self.totalMB = expectedMB
+                            }
+                        }
                     }
                 }
 
@@ -143,53 +157,84 @@ final class KokoroVoiceEngine: ObservableObject {
                 }
                 try FileManager.default.moveItem(at: tempURL, to: dstModel)
 
-                // Download voice style embeddings for each preset
-                for (index, preset) in Self.presets.enumerated() {
-                    if Task.isCancelled { break }
-                    let voiceRemote = URL(string: "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/\(preset.id).bin")!
-                    if let (vTmp, vResp) = try? await URLSession.shared.download(from: voiceRemote),
-                       let vHttp = vResp as? HTTPURLResponse, (200..<300).contains(vHttp.statusCode) {
-                        let vDst = Self.voiceStyleURL(for: preset.id)
-                        try? FileManager.default.removeItem(at: vDst)
-                        try? FileManager.default.moveItem(at: vTmp, to: vDst)
+                // Download voice style embeddings in parallel
+                let presets = Self.presets
+                await withTaskGroup(of: Void.self) { group in
+                    for preset in presets {
+                        group.addTask {
+                            guard !Task.isCancelled else { return }
+                            guard let voiceRemote = URL(string: "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/\(preset.id).bin") else { return }
+                            if let (vTmp, vResp) = try? await URLSession.shared.download(from: voiceRemote),
+                               let vHttp = vResp as? HTTPURLResponse, (200..<300).contains(vHttp.statusCode) {
+                                let vDst = Self.voiceStyleURL(for: preset.id)
+                                try? FileManager.default.removeItem(at: vDst)
+                                try? FileManager.default.moveItem(at: vTmp, to: vDst)
+                            }
+                        }
                     }
-                    let p = 0.88 + (Double(index + 1) / Double(Self.presets.count)) * 0.12
-                    await MainActor.run { self.downloadProgress = p }
                 }
 
-                await MainActor.run {
-                    self.isOfflinePackInstalled = Self.checkOfflineFilesExist()
+                let installed = Self.checkOfflineFilesExist()
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.isOfflinePackInstalled = installed
                     self.isDownloadingPack = false
-                    self.downloadProgress = 1.0
+                    self.downloadProgress = installed ? 1.0 : 0.0
+                    if installed {
+                        SystemVoiceCatalog.notifyVoicesChanged()
+                    }
                 }
             } catch {
-                await MainActor.run {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
                     self.isDownloadingPack = false
                     self.downloadProgress = 0.0
-                    self.lastStatusMessage = error.localizedDescription
+                    if (error as? URLError)?.code != .cancelled {
+                        self.lastStatusMessage = error.localizedDescription
+                    }
                 }
             }
         }
     }
 
-    func removeOfflinePack() {
+    func cancelDownload() {
         downloadTask?.cancel()
+        downloadTask = nil
+        isDownloadingPack = false
+        downloadProgress = 0.0
+    }
+
+    func removeOfflinePack() {
+        cancelDownload()
         try? FileManager.default.removeItem(at: Self.kokoroDirectory)
         isOfflinePackInstalled = false
         downloadProgress = 0.0
+        downloadedMB = 0.0
+        SystemVoiceCatalog.notifyVoicesChanged()
     }
 
     private nonisolated static func downloadWithProgress(
         from url: URL,
-        onProgress: @escaping @Sendable (Double) -> Void
+        onProgress: @escaping @Sendable (Double, Double, Double) -> Void
     ) async throws -> (URL, URLResponse) {
         let delegate = ProgressDownloadDelegate(onProgress: onProgress)
-        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 900
+        let queue = OperationQueue()
+        queue.qualityOfService = .utility
+        queue.maxConcurrentOperationCount = 1
+        let session = URLSession(configuration: config, delegate: delegate, delegateQueue: queue)
         defer { session.finishTasksAndInvalidate() }
-        return try await withCheckedThrowingContinuation { cont in
-            delegate.continuation = cont
-            let task = session.downloadTask(with: url)
-            task.resume()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { cont in
+                delegate.continuation = cont
+                let task = session.downloadTask(with: url)
+                delegate.task = task
+                task.resume()
+            }
+        } onCancel: {
+            delegate.cancel()
         }
     }
 
@@ -399,13 +444,20 @@ final class KokoroVoiceEngine: ObservableObject {
 // MARK: - URLSessionDownloadDelegate for Progress
 
 private final class ProgressDownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
-    let onProgress: @Sendable (Double) -> Void
+    let onProgress: @Sendable (Double, Double, Double) -> Void
     var continuation: CheckedContinuation<(URL, URLResponse), Error>?
+    weak var task: URLSessionDownloadTask?
     private let lock = NSLock()
     private var resumed = false
+    private var lastEmitTime: CFAbsoluteTime = 0
+    private var lastEmitPercent: Int = -1
 
-    init(onProgress: @escaping @Sendable (Double) -> Void) {
+    init(onProgress: @escaping @Sendable (Double, Double, Double) -> Void) {
         self.onProgress = onProgress
+    }
+
+    func cancel() {
+        task?.cancel()
     }
 
     func urlSession(
@@ -415,9 +467,23 @@ private final class ProgressDownloadDelegate: NSObject, URLSessionDownloadDelega
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
-        guard totalBytesExpectedToWrite > 0 else { return }
-        let frac = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        onProgress(frac)
+        let expected = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : 92_361_116
+        let frac = min(1.0, max(0.0, Double(totalBytesWritten) / Double(expected)))
+        let pct = Int(frac * 100)
+        let now = CFAbsoluteTimeGetCurrent()
+
+        lock.lock()
+        let shouldEmit = (pct != lastEmitPercent && (now - lastEmitTime) >= 0.25) || pct == 100
+        if shouldEmit {
+            lastEmitPercent = pct
+            lastEmitTime = now
+        }
+        lock.unlock()
+
+        guard shouldEmit else { return }
+        let writtenMB = Double(totalBytesWritten) / (1024.0 * 1024.0)
+        let expectedMB = Double(expected) / (1024.0 * 1024.0)
+        onProgress(frac, writtenMB, expectedMB)
     }
 
     func urlSession(

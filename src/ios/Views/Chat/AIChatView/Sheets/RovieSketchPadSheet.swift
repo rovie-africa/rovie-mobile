@@ -910,7 +910,6 @@ private struct RoviePKCanvasRepresentable: UIViewRepresentable {
 
 struct RovieSketchPadSheet: View {
     @ObservedObject var model = RovieSketchSessionModel.shared
-    @ObservedObject var kokoro = KokoroVoiceEngine.shared
     @Environment(\.colorScheme) private var colorScheme
 
     private let inkColors: [String] = [
@@ -987,78 +986,18 @@ struct RovieSketchPadSheet: View {
     // MARK: - Top Header Bar
 
     private var topHeaderBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             Text(model.scene.title ?? "Sketch Pad")
                 .font(.system(size: 16, weight: .semibold))
                 .lineLimit(1)
 
             Spacer()
 
-            // Kokoro Voice Selector Menu
-            Menu {
-                Section("Kokoro-82M Voice") {
-                    ForEach(KokoroVoiceEngine.presets) { preset in
-                        Button {
-                            kokoro.selectedVoiceId = preset.id
-                            if model.isPlaying {
-                                model.replayCurrentStep()
-                            }
-                        } label: {
-                            HStack {
-                                Text("\(preset.name) · \(preset.accent)")
-                                if kokoro.selectedVoiceId == preset.id {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
+            // Direct 1-tap Kokoro-82M download / status pill (isolated from Menu & Canvas)
+            KokoroDownloadHeaderPill()
 
-                Section("Speed") {
-                    ForEach([Float(1.0), Float(1.25), Float(1.5)], id: \.self) { rate in
-                        Button {
-                            model.playbackSpeed = rate
-                        } label: {
-                            HStack {
-                                Text(String(format: "%.2gx", rate))
-                                if abs(model.playbackSpeed - rate) < 0.05 {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Section("Offline Engine") {
-                    if kokoro.isOfflinePackInstalled {
-                        Label("Kokoro-82M Ready Offline", systemImage: "checkmark.circle.fill")
-                        Button(role: .destructive) {
-                            kokoro.removeOfflinePack()
-                        } label: {
-                            Label("Remove Offline Pack", systemImage: "trash")
-                        }
-                    } else if kokoro.isDownloadingPack {
-                        Text("Downloading Kokoro-82M (\(Int(kokoro.downloadProgress * 100))%)…")
-                    } else {
-                        Button {
-                            kokoro.downloadOfflinePack()
-                        } label: {
-                            Label("Download Kokoro-82M Offline (~82 MB)", systemImage: "arrow.down.circle")
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: model.isSpeaking ? "waveform.circle.fill" : "waveform")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(model.isSpeaking ? Color.accentColor : .primary)
-                    Text(kokoro.currentPreset.name.replacingOccurrences(of: "Kokoro · ", with: ""))
-                        .font(.system(size: 13, weight: .medium))
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.primary.opacity(0.07), in: Capsule())
-            }
+            // Kokoro Voice Selector Menu (never re-evaluates on progress ticks)
+            KokoroVoiceSelectorMenu(model: model)
 
             Button {
                 model.clearAll()
@@ -1295,6 +1234,130 @@ struct RovieSketchPadSheetModifier: ViewModifier {
             RovieSketchPadSheet()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+// MARK: - Isolated Kokoro Download Pill & Voice Selector Menu
+
+struct KokoroDownloadHeaderPill: View {
+    @ObservedObject private var kokoro = KokoroVoiceEngine.shared
+
+    var body: some View {
+        if kokoro.isOfflinePackInstalled {
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.green)
+                Text("Offline")
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.green.opacity(0.10), in: Capsule())
+        } else if kokoro.isDownloadingPack {
+            Button {
+                kokoro.cancelDownload()
+            } label: {
+                HStack(spacing: 5) {
+                    ProgressView()
+                        .controlSize(.mini)
+                    Text("\(Int(kokoro.downloadProgress * 100))% · \(Int(kokoro.downloadedMB))MB")
+                        .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Color.accentColor)
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Color.accentColor.opacity(0.12), in: Capsule())
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button {
+                kokoro.downloadOfflinePack()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Get Kokoro")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Color.accentColor.opacity(0.12), in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+private struct KokoroVoiceSelectorMenu: View {
+    @ObservedObject var model: RovieSketchSessionModel
+    @AppStorage("rovie.kokoro.selectedVoiceId") private var selectedVoiceId: String = "af_heart"
+
+    private var currentPreset: KokoroVoiceEngine.VoicePreset {
+        KokoroVoiceEngine.preset(for: selectedVoiceId)
+    }
+
+    var body: some View {
+        Menu {
+            Section("Kokoro-82M Voice") {
+                ForEach(KokoroVoiceEngine.presets) { preset in
+                    Button {
+                        KokoroVoiceEngine.shared.selectedVoiceId = preset.id
+                        if model.isPlaying {
+                            model.replayCurrentStep()
+                        }
+                    } label: {
+                        HStack {
+                            Text("\(preset.name) · \(preset.accent)")
+                            if selectedVoiceId == preset.id {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
+
+            Section("Speed") {
+                ForEach([Float(1.0), Float(1.25), Float(1.5)], id: \.self) { rate in
+                    Button {
+                        model.playbackSpeed = rate
+                    } label: {
+                        HStack {
+                            Text(String(format: "%.2gx", rate))
+                            if abs(model.playbackSpeed - rate) < 0.05 {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
+
+            if KokoroVoiceEngine.checkOfflineFilesExist() {
+                Section("Offline Engine") {
+                    Button(role: .destructive) {
+                        KokoroVoiceEngine.shared.removeOfflinePack()
+                    } label: {
+                        Label("Remove Offline Pack", systemImage: "trash")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: model.isSpeaking ? "waveform.circle.fill" : "waveform")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(model.isSpeaking ? Color.accentColor : .primary)
+                Text(currentPreset.name.replacingOccurrences(of: "Kokoro · ", with: ""))
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.primary.opacity(0.07), in: Capsule())
         }
     }
 }

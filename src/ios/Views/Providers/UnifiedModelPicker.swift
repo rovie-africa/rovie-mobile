@@ -1054,6 +1054,19 @@ struct UnifiedModelPicker: View {
     static func systemEntry(for id: String) -> ModelEntry? {
         guard VoiceProviderResolver.isSystemEntry(id) else { return nil }
         if let voiceId = VoiceProviderResolver.selectedSystemVoiceId(id) {
+            if KokoroVoiceEngine.isKokoroVoiceId(voiceId) {
+                let preset = KokoroVoiceEngine.preset(for: voiceId)
+                return ModelEntry(
+                    providerInstanceId: SystemVoiceProvider.builtinProviderId,
+                    model: LLMModel(
+                        id: preset.id,
+                        displayName: "\(preset.name) (\(preset.accent))",
+                        provider: SystemVoiceProvider.builtinProviderId,
+                        modalityOverride: [.audioOutput]
+                    ),
+                    isHidden: true
+                )
+            }
             // The voice IS a TTS voice member. If it's currently installed, use its
             // rich localized name; if NOT installed on this device (e.g. a synced
             // group picked a voice this device doesn't have), still render it as a
