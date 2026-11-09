@@ -4,19 +4,14 @@ import SwiftUI
 //  Rovie Mobile - chat page (AIChatView)
 //
 //  [RovieAccess] Bottom drawer raised when a turn fails on an empty Rovie
-//  wallet or a saturated free model. Communicates the status, shows the real
-//  balance, markets Route micro-credits and leading models without slop or pills,
-//  and resumes the conversation when funded.
+//  wallet or a saturated free model. Uses a tactile amount slider and fluid
+//  spring animations without pills, tags, or explainers.
 //
 
 // MARK: - Host modifier
 
-/// Presents `RovieTopUpSheet` whenever the view model raises a
-/// `RovieAccessIssue`. Kept out of AIChatView.body so its type-checker stays
-/// cheap.
 struct RovieTopUpSheetModifier: ViewModifier {
     @ObservedObject var vm: AIChatViewModel
-    /// Opens the model picker once the drawer has finished dismissing.
     let onChooseModel: () -> Void
 
     func body(content: Content) -> some View {
@@ -42,39 +37,45 @@ struct RovieTopUpSheet: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Selected plan amount
-    @State private var selectedAmount: Int = 1_000
-    /// Balance (USD) when the drawer opened; a top-up is any rise above it.
+    @State private var stepIndex: Int = 2
+    @State private var isDraggingSlider = false
+    @State private var appeared = false
     @State private var baselineUsd: Double?
-    /// Whether fresh balance has arrived since the drawer opened.
     @State private var hasFreshBalance = false
-    /// The user went to the dashboard; refresh when the app comes back.
     @State private var leftForTopUp = false
 
-    // MARK: Currency & Presets
+    // MARK: Currency & Steps
 
     private var activeCurrency: String {
         wallet.currentBalance?.localCurrency ?? RovieWalletBalance.defaultCurrencyCode
     }
 
-    private var presets: [RovieTopUpPreset] {
-        RovieTopUpPreset.presets(for: activeCurrency)
+    private var steps: [RovieTopUpPreset] {
+        RovieTopUpPreset.steps(for: activeCurrency)
+    }
+
+    private var clampedIndex: Int {
+        guard !steps.isEmpty else { return 0 }
+        return min(max(stepIndex, 0), steps.count - 1)
     }
 
     private var selectedPreset: RovieTopUpPreset? {
-        presets.first(where: { $0.amount == selectedAmount }) ?? presets.first
+        guard !steps.isEmpty else { return nil }
+        return steps[clampedIndex]
+    }
+
+    private var selectedAmount: Int {
+        selectedPreset?.amount ?? 1_000
     }
 
     private var availableUsd: Double? { wallet.currentBalance?.availableUsd }
 
-    /// Whether the user already has credit available to spend.
     private var hasAvailableFunds: Bool {
         guard let local = wallet.currentBalance?.availableLocal,
               let usd = wallet.currentBalance?.availableUsd else { return false }
         return local > 0.01 || usd > 0.005
     }
 
-    /// Paid models are usable.
     private var isFunded: Bool {
         guard hasFreshBalance else { return false }
         if hasAvailableFunds { return true }
@@ -87,7 +88,7 @@ struct RovieTopUpSheet: View {
     private var title: String {
         switch issue {
         case .freeModelLimited:
-            return hasAvailableFunds ? AppLocalized("Continue with Route Balance") : AppLocalized("Daily Limit Reached")
+            return hasAvailableFunds ? AppLocalized("Continue with Route") : AppLocalized("Daily Limit Reached")
         case .freeModelUnavailable:
             return AppLocalized("Model Busy")
         case .insufficientBalance:
@@ -99,39 +100,54 @@ struct RovieTopUpSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(title)
-                .font(.title2.weight(.bold))
-                .multilineTextAlignment(.center)
-                .contentTransition(.opacity)
-                .padding(.top, 28)
+            headerRow
+                .padding(.top, 26)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 8)
 
-            balanceHero
-                .padding(.top, 8)
-                .padding(.bottom, 20)
+            Spacer(minLength: 16)
+
+            heroAmount
+                .opacity(appeared ? 1 : 0)
+                .scaleEffect(appeared ? 1 : 0.94)
 
             if !hasAvailableFunds {
-                planSection
-                    .padding(.bottom, 16)
-
-                featureHighlight
-                    .padding(.bottom, 22)
+                RovieAmountSlider(
+                    steps: steps,
+                    selectedIndex: $stepIndex,
+                    isDragging: $isDraggingSlider
+                )
+                .padding(.top, 22)
+                .padding(.bottom, 24)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 10)
             } else {
-                featureHighlight
-                    .padding(.bottom, 24)
+                Spacer(minLength: 24)
             }
 
             actions
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 12)
         }
         .padding(.horizontal, 24)
-        .padding(.bottom, 12)
+        .padding(.bottom, 14)
         .frame(maxWidth: .infinity)
-        .presentationDetents([.height(hasAvailableFunds ? 320 : 450)])
+        .presentationDetents([.height(hasAvailableFunds ? 260 : 340)])
         .presentationDragIndicator(.visible)
-        .animation(.easeInOut(duration: 0.25), value: hasAvailableFunds)
-        .animation(.easeInOut(duration: 0.25), value: selectedAmount)
+        .animation(.spring(response: 0.42, dampingFraction: 0.82), value: hasAvailableFunds)
+        .animation(.spring(response: 0.26, dampingFraction: 0.72), value: stepIndex)
+        .animation(.spring(response: 0.26, dampingFraction: 0.68), value: isDraggingSlider)
+        .onAppear {
+            withAnimation(.spring(response: 0.44, dampingFraction: 0.82)) {
+                appeared = true
+            }
+        }
         .task {
-            syncDefaultPreset()
+            syncDefaultStep()
             await refreshBalance()
+        }
+        .onChange(of: activeCurrency) { _ in
+            syncDefaultStep()
         }
         .onChange(of: isFunded) { funded in
             if funded {
@@ -144,89 +160,45 @@ struct RovieTopUpSheet: View {
         }
     }
 
-    // MARK: Views
+    // MARK: Header & Hero
 
-    private var balanceHero: some View {
-        Group {
-            if hasAvailableFunds {
-                Text(wallet.currentBalance?.formattedLocalAvailable ?? "₦0")
-                    .foregroundStyle(.primary)
-            } else {
-                switch issue {
-                case .insufficientBalance:
-                    Text(wallet.currentBalance?.formattedLocalAvailable ?? "₦0")
-                        .foregroundStyle(.secondary)
-                case .freeModelLimited:
-                    Text(AppLocalized("0 Free Prompts"))
-                        .font(.title.weight(.bold))
-                        .foregroundStyle(.secondary)
-                case .freeModelUnavailable:
-                    Text(AppLocalized("Community Busy"))
-                        .font(.title.weight(.bold))
-                        .foregroundStyle(.secondary)
-                }
+    private var headerRow: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            if !hasAvailableFunds {
+                Text(wallet.currentBalance?.formattedLocalAvailable ?? "₦0.00")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .opacity(wallet.isLoading && !hasFreshBalance ? 0.35 : 1)
             }
         }
-        .font(.system(size: 42, weight: .bold, design: .rounded))
+    }
+
+    private var heroAmount: some View {
+        let displayString = hasAvailableFunds
+            ? (wallet.currentBalance?.formattedLocalAvailable ?? "₦0.00")
+            : (selectedPreset?.formatted ?? "₦1,000")
+
+        return RovieRollingAmountText(
+            text: displayString,
+            numericValue: Double(selectedAmount)
+        )
+        .font(.system(size: 52, weight: .bold, design: .rounded))
         .monospacedDigit()
+        .foregroundStyle(.primary)
         .lineLimit(1)
         .minimumScaleFactor(0.5)
-        .contentTransition(.opacity)
-        .opacity(wallet.isLoading && !hasFreshBalance ? 0.4 : 1)
+        .scaleEffect(isDraggingSlider ? 1.06 : 1.0)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    private var planSection: some View {
-        HStack(spacing: 8) {
-            ForEach(presets) { preset in
-                Button {
-                    selectedAmount = preset.amount
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    Text(preset.formatted)
-                        .font(.system(size: 15, weight: selectedAmount == preset.amount ? .bold : .medium))
-                        .frame(maxWidth: .infinity, minHeight: 46)
-                        .foregroundStyle(selectedAmount == preset.amount ? Color.primary : Color.secondary)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(selectedAmount == preset.amount ? Color(uiColor: .secondarySystemBackground) : Color(uiColor: .tertiarySystemBackground).opacity(0.5))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(selectedAmount == preset.amount ? Color.accentColor : Color.clear, lineWidth: 1.5)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var featureHighlight: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-                Text("Claude 3.7 · GPT-4o · DeepSeek")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-            }
-            Spacer()
-            HStack(spacing: 4) {
-                Image(systemName: "bolt.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.orange)
-                Text("Zero limits")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(uiColor: .secondarySystemBackground).opacity(0.6))
-        )
-    }
+    // MARK: Actions
 
     @ViewBuilder
     private var actions: some View {
@@ -239,7 +211,7 @@ struct RovieTopUpSheet: View {
     @ViewBuilder
     private var primaryButton: some View {
         if hasAvailableFunds {
-            drawerButton(AppLocalized("Continue")) { finish(then: onRetry) }
+            drawerButton(AppLocalized("Continue"), action: { finish(then: onRetry) })
         } else {
             let label = "\(AppLocalized("Top up")) \(selectedPreset?.formatted ?? "")"
             drawerButton(label, systemImage: "arrow.up.right", action: openTopUp)
@@ -253,24 +225,19 @@ struct RovieTopUpSheet: View {
         } else {
             switch issue {
             case .insufficientBalance:
-                secondary(AppLocalized("Custom amount on Route")) { openTopUpCustom() }
                 secondary(AppLocalized("Switch to free model")) { finish(then: onChooseModel) }
-                secondary(AppLocalized("Not now")) { dismiss() }
             case .freeModelLimited, .freeModelUnavailable:
                 secondary(AppLocalized("Choose another model")) { finish(then: onChooseModel) }
-                secondary(AppLocalized("Not now")) { dismiss() }
             }
         }
     }
-
-    // MARK: Pieces
 
     private func drawerButton(
         _ label: String, systemImage: String? = nil, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Text(label)
+                RovieRollingAmountText(text: label, numericValue: Double(selectedAmount))
                 if let systemImage {
                     Image(systemName: systemImage)
                         .font(.body.weight(.semibold))
@@ -278,17 +245,20 @@ struct RovieTopUpSheet: View {
                 }
             }
             .font(.body.weight(.semibold))
-            .frame(maxWidth: .infinity, minHeight: 32)
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.accentColor)
+            )
         }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.roundedRectangle(radius: 16))
-        .controlSize(.large)
+        .buttonStyle(RoviePressButtonStyle())
     }
 
     private func secondary(_ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.body.weight(.medium))
+                .font(.subheadline.weight(.medium))
                 .frame(maxWidth: .infinity, minHeight: 36)
                 .contentShape(Rectangle())
         }
@@ -296,17 +266,11 @@ struct RovieTopUpSheet: View {
         .foregroundStyle(.secondary)
     }
 
-    // MARK: Actions
+    // MARK: Logic
 
     private func openTopUp() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         guard let url = RovieChannel.topUpURL(amount: selectedAmount, currency: activeCurrency) else { return }
-        if baselineUsd == nil { baselineUsd = availableUsd ?? 0 }
-        leftForTopUp = true
-        openURL(url)
-    }
-
-    private func openTopUpCustom() {
-        guard let url = RovieChannel.topUpURL(amount: nil, currency: activeCurrency) else { return }
         if baselineUsd == nil { baselineUsd = availableUsd ?? 0 }
         leftForTopUp = true
         openURL(url)
@@ -317,10 +281,10 @@ struct RovieTopUpSheet: View {
         next()
     }
 
-    private func syncDefaultPreset() {
-        if let defaultOption = presets.dropFirst().first ?? presets.first {
-            selectedAmount = defaultOption.amount
-        }
+    private func syncDefaultStep() {
+        let count = steps.count
+        guard count > 0 else { return }
+        stepIndex = min(2, count - 1)
     }
 
     private func refreshBalance() async {
@@ -329,5 +293,132 @@ struct RovieTopUpSheet: View {
             baselineUsd = availableUsd
         }
         hasFreshBalance = true
+    }
+}
+
+// MARK: - Custom Tactile Slider
+
+private struct RovieAmountSlider: View {
+    let steps: [RovieTopUpPreset]
+    @Binding var selectedIndex: Int
+    @Binding var isDragging: Bool
+
+    @State private var selectionFeedback = UISelectionFeedbackGenerator()
+    @State private var boundaryFeedback = UIImpactFeedbackGenerator(style: .rigid)
+
+    private let trackHeight: CGFloat = 12
+    private let thumbSize: CGFloat = 28
+
+    private var normalizedProgress: CGFloat {
+        guard steps.count > 1 else { return 0 }
+        let clamped = min(max(selectedIndex, 0), steps.count - 1)
+        return CGFloat(clamped) / CGFloat(steps.count - 1)
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            GeometryReader { geo in
+                let width = max(geo.size.width - thumbSize, 1)
+                let thumbOffset = width * normalizedProgress
+
+                ZStack(alignment: .leading) {
+                    // Track background
+                    Capsule(style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemFill))
+                        .frame(height: trackHeight)
+
+                    // Active fill
+                    Capsule(style: .continuous)
+                        .fill(Color.accentColor)
+                        .frame(width: thumbOffset + thumbSize * 0.5, height: trackHeight)
+
+                    // Step ticks
+                    HStack(spacing: 0) {
+                        ForEach(steps.indices, id: \.self) { idx in
+                            Circle()
+                                .fill(idx <= selectedIndex ? Color.white.opacity(0.45) : Color.primary.opacity(0.14))
+                                .frame(width: 4, height: 4)
+                            if idx < steps.count - 1 {
+                                Spacer(minLength: 0)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, thumbSize * 0.5 - 2)
+
+                    // Thumb
+                    Circle()
+                        .fill(Color(uiColor: .systemBackground))
+                        .frame(width: thumbSize, height: thumbSize)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(Color.accentColor, lineWidth: isDragging ? 4 : 3)
+                        )
+                        .shadow(color: Color.black.opacity(isDragging ? 0.22 : 0.12), radius: isDragging ? 8 : 4, y: 2)
+                        .scaleEffect(isDragging ? 1.16 : 1.0)
+                        .offset(x: thumbOffset)
+                }
+                .frame(height: thumbSize)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            if !isDragging {
+                                isDragging = true
+                                selectionFeedback.prepare()
+                            }
+                            let x = value.location.x - thumbSize * 0.5
+                            let ratio = min(max(x / width, 0), 1)
+                            let targetIndex = Int(round(ratio * CGFloat(max(steps.count - 1, 1))))
+                            if targetIndex != selectedIndex {
+                                selectedIndex = targetIndex
+                                if targetIndex == 0 || targetIndex == steps.count - 1 {
+                                    boundaryFeedback.impactOccurred(intensity: 0.75)
+                                } else {
+                                    selectionFeedback.selectionChanged()
+                                }
+                            }
+                        }
+                        .onEnded { _ in
+                            isDragging = false
+                        }
+                )
+            }
+            .frame(height: thumbSize)
+
+            HStack {
+                Text(steps.first?.formatted ?? "")
+                Spacer()
+                Text(steps.last?.formatted ?? "")
+            }
+            .font(.caption.weight(.medium))
+            .monospacedDigit()
+            .foregroundStyle(.tertiary)
+        }
+    }
+}
+
+// MARK: - Rolling Amount & Button Style
+
+private struct RovieRollingAmountText: View {
+    let text: String
+    let numericValue: Double
+
+    var body: some View {
+        if #available(iOS 17.0, *) {
+            Text(text)
+                .contentTransition(.numericText(value: numericValue))
+        } else {
+            Text(text)
+                .contentTransition(.opacity)
+        }
+    }
+}
+
+private struct RoviePressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.spring(response: 0.22, dampingFraction: 0.75), value: configuration.isPressed)
     }
 }

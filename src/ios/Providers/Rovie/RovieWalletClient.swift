@@ -134,22 +134,28 @@ struct RovieWalletBalance: Codable, Sendable, Equatable {
     }
 }
 
-/// [RovieTopUpPreset] Plan/tier top-up options in local currency
+/// [RovieTopUpPreset] Step options in local currency for the interactive top-up slider
 struct RovieTopUpPreset: Identifiable, Hashable, Sendable {
     let id: Int
     let amount: Int
     let formatted: String
 
-    static func presets(for currency: String) -> [RovieTopUpPreset] {
+    static func steps(for currency: String) -> [RovieTopUpPreset] {
         let curr = currency.uppercased()
         let amounts: [Int]
         switch curr {
-        case "NGN": amounts = [500, 1_000, 2_500, 5_000]
-        case "KES": amounts = [50, 100, 250, 500]
-        case "GHS": amounts = [5, 10, 25, 50]
-        case "UGX": amounts = [2_000, 5_000, 10_000, 20_000]
-        case "ZAR": amounts = [10, 25, 50, 100]
-        default:    amounts = [1, 2, 5, 10]
+        case "NGN":
+            amounts = [500, 750, 1_000, 1_500, 2_000, 2_500, 3_500, 5_000, 7_500, 10_000, 15_000, 25_000, 50_000]
+        case "KES":
+            amounts = [50, 100, 150, 200, 250, 350, 500, 750, 1_000, 1_500, 2_500, 5_000]
+        case "GHS":
+            amounts = [5, 10, 15, 20, 25, 35, 50, 75, 100, 150, 250, 500]
+        case "UGX":
+            amounts = [2_000, 3_000, 5_000, 7_500, 10_000, 15_000, 20_000, 35_000, 50_000, 100_000]
+        case "ZAR":
+            amounts = [10, 15, 25, 35, 50, 75, 100, 150, 250, 500, 1_000]
+        default:
+            amounts = [1, 2, 3, 5, 10, 15, 20, 25, 50, 100]
         }
 
         let symbol: String
@@ -169,6 +175,10 @@ struct RovieTopUpPreset: Identifiable, Hashable, Sendable {
             let str = formatter.string(from: NSNumber(value: val)) ?? "\(val)"
             return RovieTopUpPreset(id: val, amount: val, formatted: "\(symbol)\(str)")
         }
+    }
+
+    static func presets(for currency: String) -> [RovieTopUpPreset] {
+        steps(for: currency)
     }
 }
 
