@@ -271,7 +271,10 @@ enum LLMProviderFactory {
         }
         switch instance.credentialType {
         case .apiKey:
-            let key = ProviderKeychainHelper.loadAPIKey(instanceId: instance.id) ?? ""
+            var key = ProviderKeychainHelper.loadAPIKey(instanceId: instance.id) ?? ""
+            if key.isEmpty && instance.isRovieChannel {
+                key = RovieChannel.storedAPIKey() ?? ""
+            }
             return applyAzure(applyCustomUserAgent(configure(OpenAIProvider(apiKey: key, model: model, customBaseURL: customBase, appendV1Suffix: appendV1)), instance: instance), instance: instance)
         case .oauth:
             if let manualToken = ProviderKeychainHelper.loadOAuthString(instanceId: instance.id, account: "manual-oauth-token") {

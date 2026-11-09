@@ -5,8 +5,8 @@ import SwiftUI
 //
 //  [RovieAccess] Bottom drawer raised when a turn fails on an empty Rovie
 //  wallet or a saturated free model. Communicates the status, shows the real
-//  balance, markets Route plans/top-up tiers without slop or pills, and resumes
-//  the conversation when funded.
+//  balance, markets Route micro-credits and leading models without slop or pills,
+//  and resumes the conversation when funded.
 //
 
 // MARK: - Host modifier
@@ -43,7 +43,7 @@ struct RovieTopUpSheet: View {
     @Environment(\.scenePhase) private var scenePhase
 
     /// Selected plan amount
-    @State private var selectedAmount: Int = 10_000
+    @State private var selectedAmount: Int = 1_000
     /// Balance (USD) when the drawer opened; a top-up is any rise above it.
     @State private var baselineUsd: Double?
     /// Whether fresh balance has arrived since the drawer opened.
@@ -67,24 +67,31 @@ struct RovieTopUpSheet: View {
 
     private var availableUsd: Double? { wallet.currentBalance?.availableUsd }
 
-    /// Paid models are usable again.
+    /// Whether the user already has credit available to spend.
+    private var hasAvailableFunds: Bool {
+        guard let local = wallet.currentBalance?.availableLocal,
+              let usd = wallet.currentBalance?.availableUsd else { return false }
+        return local > 0.01 || usd > 0.005
+    }
+
+    /// Paid models are usable.
     private var isFunded: Bool {
-        guard hasFreshBalance, let now = availableUsd else { return false }
-        switch issue {
-        case .insufficientBalance:
-            guard let baselineUsd else { return false }
-            return now > baselineUsd
-        case .freeModelLimited, .freeModelUnavailable:
-            return now > 0
+        guard hasFreshBalance else { return false }
+        if hasAvailableFunds { return true }
+        if let baselineUsd, let now = availableUsd, now > baselineUsd {
+            return true
         }
+        return false
     }
 
     private var title: String {
-        if isFunded { return AppLocalized("Ready to Continue") }
         switch issue {
-        case .insufficientBalance: return AppLocalized("Wallet Empty")
-        case .freeModelLimited: return AppLocalized("Daily Limit Reached")
-        case .freeModelUnavailable: return AppLocalized("Model Busy")
+        case .freeModelLimited:
+            return hasAvailableFunds ? AppLocalized("Continue with Route Balance") : AppLocalized("Daily Limit Reached")
+        case .freeModelUnavailable:
+            return AppLocalized("Model Busy")
+        case .insufficientBalance:
+            return hasAvailableFunds ? AppLocalized("Ready to Continue") : AppLocalized("Wallet Empty")
         }
     }
 
@@ -102,12 +109,15 @@ struct RovieTopUpSheet: View {
                 .padding(.top, 8)
                 .padding(.bottom, 20)
 
-            if !isFunded {
+            if !hasAvailableFunds {
                 planSection
                     .padding(.bottom, 16)
 
                 featureHighlight
                     .padding(.bottom, 22)
+            } else {
+                featureHighlight
+                    .padding(.bottom, 24)
             }
 
             actions
@@ -115,9 +125,9 @@ struct RovieTopUpSheet: View {
         .padding(.horizontal, 24)
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity)
-        .presentationDetents([.height(isFunded ? 300 : 440)])
+        .presentationDetents([.height(hasAvailableFunds ? 320 : 450)])
         .presentationDragIndicator(.visible)
-        .animation(.easeInOut(duration: 0.25), value: isFunded)
+        .animation(.easeInOut(duration: 0.25), value: hasAvailableFunds)
         .animation(.easeInOut(duration: 0.25), value: selectedAmount)
         .task {
             syncDefaultPreset()
@@ -138,14 +148,14 @@ struct RovieTopUpSheet: View {
 
     private var balanceHero: some View {
         Group {
-            if isFunded {
+            if hasAvailableFunds {
                 Text(wallet.currentBalance?.formattedLocalAvailable ?? "₦0")
                     .foregroundStyle(.primary)
             } else {
                 switch issue {
                 case .insufficientBalance:
                     Text(wallet.currentBalance?.formattedLocalAvailable ?? "₦0")
-                        .foregroundStyle(hasFreshBalance && (wallet.currentBalance?.availableLocal ?? 0) <= 0 ? .secondary : .primary)
+                        .foregroundStyle(.secondary)
                 case .freeModelLimited:
                     Text(AppLocalized("0 Free Prompts"))
                         .font(.title.weight(.bold))
@@ -228,7 +238,7 @@ struct RovieTopUpSheet: View {
 
     @ViewBuilder
     private var primaryButton: some View {
-        if isFunded {
+        if hasAvailableFunds {
             drawerButton(AppLocalized("Continue")) { finish(then: onRetry) }
         } else {
             let label = "\(AppLocalized("Top up")) \(selectedPreset?.formatted ?? "")"
@@ -238,11 +248,12 @@ struct RovieTopUpSheet: View {
 
     @ViewBuilder
     private var secondaryButtons: some View {
-        if isFunded {
+        if hasAvailableFunds {
             secondary(AppLocalized("Dismiss")) { dismiss() }
         } else {
             switch issue {
             case .insufficientBalance:
+                secondary(AppLocalized("Custom amount on Route")) { openTopUpCustom() }
                 secondary(AppLocalized("Switch to free model")) { finish(then: onChooseModel) }
                 secondary(AppLocalized("Not now")) { dismiss() }
             case .freeModelLimited, .freeModelUnavailable:
@@ -289,6 +300,13 @@ struct RovieTopUpSheet: View {
 
     private func openTopUp() {
         guard let url = RovieChannel.topUpURL(amount: selectedAmount, currency: activeCurrency) else { return }
+        if baselineUsd == nil { baselineUsd = availableUsd ?? 0 }
+        leftForTopUp = true
+        openURL(url)
+    }
+
+    private func openTopUpCustom() {
+        guard let url = RovieChannel.topUpURL(amount: nil, currency: activeCurrency) else { return }
         if baselineUsd == nil { baselineUsd = availableUsd ?? 0 }
         leftForTopUp = true
         openURL(url)

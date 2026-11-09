@@ -144,12 +144,12 @@ struct RovieTopUpPreset: Identifiable, Hashable, Sendable {
         let curr = currency.uppercased()
         let amounts: [Int]
         switch curr {
-        case "NGN": amounts = [5_000, 10_000, 25_000, 50_000]
-        case "KES": amounts = [500, 1_000, 2_500, 5_000]
-        case "GHS": amounts = [50, 100, 250, 500]
-        case "UGX": amounts = [20_000, 50_000, 100_000, 200_000]
-        case "ZAR": amounts = [100, 250, 500, 1_000]
-        default:    amounts = [10, 25, 50, 100]
+        case "NGN": amounts = [500, 1_000, 2_500, 5_000]
+        case "KES": amounts = [50, 100, 250, 500]
+        case "GHS": amounts = [5, 10, 25, 50]
+        case "UGX": amounts = [2_000, 5_000, 10_000, 20_000]
+        case "ZAR": amounts = [10, 25, 50, 100]
+        default:    amounts = [1, 2, 5, 10]
         }
 
         let symbol: String
