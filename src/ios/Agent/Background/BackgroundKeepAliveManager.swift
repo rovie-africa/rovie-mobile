@@ -944,6 +944,14 @@ final class BackgroundKeepAliveManager: NSObject, ObservableObject, CLLocationMa
             // (checkmark + last message) and leave it on screen; it's dismissed
             // when the user taps it and Minis foregrounds.
             Task { await AgentLiveActivityManager.shared.finishActivity() }
+        } else if busyChanged {
+            if busy {
+                AgentLiveActivityManager.shared.startActivity(sessions: buildSessionSnapshots())
+                startUpdateTimer()
+            } else {
+                stopUpdateTimer()
+                Task { await AgentLiveActivityManager.shared.finishActivity() }
+            }
         }
 
         // [T-bka-la-before-task] Evaluated after the activate branch: when
@@ -1911,14 +1919,10 @@ final class BackgroundKeepAliveManager: NSObject, ObservableObject, CLLocationMa
     }
 
     func updateLiveActivityIfNeeded(source: String = "?") {
-        guard isActive else {
-            let cnt = SessionActivityTracker.shared.liveActivitySessions.count
-            if cnt > 0 {
-                logger.info("[LiveActivity][update] SKIP src=\(source) isActive=false tracker=\(cnt) session(s)")
-            }
+        let sessions = SessionActivityTracker.shared.liveActivitySessions
+        guard isActive || !sessions.isEmpty else {
             return
         }
-        let sessions = SessionActivityTracker.shared.liveActivitySessions
         let count = sessions.count
         let idList = sessions.map { $0.prefix(8) }.joined(separator: ",")
         let appState: String = {
