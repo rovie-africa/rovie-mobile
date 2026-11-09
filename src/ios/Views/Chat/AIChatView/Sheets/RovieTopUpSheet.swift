@@ -4,8 +4,8 @@ import SwiftUI
 //  Rovie Mobile - chat page (AIChatView)
 //
 //  [RovieAccess] Bottom drawer raised when a turn fails on an empty Rovie
-//  wallet or a saturated free model. Uses a tactile amount slider and fluid
-//  spring animations without pills, tags, or explainers.
+//  wallet or a saturated free model. Uses a continuous 120Hz magnetic slider
+//  and fluid spring animations without pills, tags, or explainers.
 //
 
 // MARK: - Host modifier
@@ -105,7 +105,7 @@ struct RovieTopUpSheet: View {
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 8)
 
-            Spacer(minLength: 16)
+            Spacer(minLength: 14)
 
             heroAmount
                 .opacity(appeared ? 1 : 0)
@@ -115,10 +115,11 @@ struct RovieTopUpSheet: View {
                 RovieAmountSlider(
                     steps: steps,
                     selectedIndex: $stepIndex,
-                    isDragging: $isDraggingSlider
+                    isDragging: $isDraggingSlider,
+                    onCustomAmount: openTopUpCustom
                 )
-                .padding(.top, 22)
-                .padding(.bottom, 24)
+                .padding(.top, 18)
+                .padding(.bottom, 22)
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 10)
             } else {
@@ -132,10 +133,10 @@ struct RovieTopUpSheet: View {
         .padding(.horizontal, 24)
         .padding(.bottom, 14)
         .frame(maxWidth: .infinity)
-        .presentationDetents([.height(hasAvailableFunds ? 260 : 340)])
+        .presentationDetents([.height(hasAvailableFunds ? 260 : 365)])
         .presentationDragIndicator(.visible)
         .animation(.spring(response: 0.42, dampingFraction: 0.82), value: hasAvailableFunds)
-        .animation(.spring(response: 0.26, dampingFraction: 0.72), value: stepIndex)
+        .animation(.spring(response: 0.24, dampingFraction: 0.74), value: stepIndex)
         .animation(.spring(response: 0.26, dampingFraction: 0.68), value: isDraggingSlider)
         .onAppear {
             withAnimation(.spring(response: 0.44, dampingFraction: 0.82)) {
@@ -189,12 +190,13 @@ struct RovieTopUpSheet: View {
             text: displayString,
             numericValue: Double(selectedAmount)
         )
-        .font(.system(size: 52, weight: .bold, design: .rounded))
+        .font(.system(size: 54, weight: .bold, design: .rounded))
         .monospacedDigit()
         .foregroundStyle(.primary)
         .lineLimit(1)
         .minimumScaleFactor(0.5)
-        .scaleEffect(isDraggingSlider ? 1.06 : 1.0)
+        .scaleEffect(isDraggingSlider ? 1.07 : 1.0)
+        .offset(y: isDraggingSlider ? -2 : 0)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
@@ -276,6 +278,14 @@ struct RovieTopUpSheet: View {
         openURL(url)
     }
 
+    private func openTopUpCustom() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        guard let url = RovieChannel.topUpURL(amount: nil, currency: activeCurrency) else { return }
+        if baselineUsd == nil { baselineUsd = availableUsd ?? 0 }
+        leftForTopUp = true
+        openURL(url)
+    }
+
     private func finish(then next: @escaping () -> Void) {
         dismiss()
         next()
@@ -296,66 +306,109 @@ struct RovieTopUpSheet: View {
     }
 }
 
-// MARK: - Custom Tactile Slider
+// MARK: - Continuous Magnetic Scrubber Slider
 
 private struct RovieAmountSlider: View {
     let steps: [RovieTopUpPreset]
     @Binding var selectedIndex: Int
     @Binding var isDragging: Bool
+    let onCustomAmount: () -> Void
 
+    /// Live continuous progress (0...1) while finger is down so the thumb tracks
+    /// at 120Hz with magnetic pull toward each step, then snaps cleanly on release.
+    @State private var liveDragProgress: CGFloat?
     @State private var selectionFeedback = UISelectionFeedbackGenerator()
     @State private var boundaryFeedback = UIImpactFeedbackGenerator(style: .rigid)
 
-    private let trackHeight: CGFloat = 12
-    private let thumbSize: CGFloat = 28
+    private let thumbSize: CGFloat = 32
 
-    private var normalizedProgress: CGFloat {
+    private var stepCount: Int {
+        max(steps.count - 1, 1)
+    }
+
+    private var discreteProgress: CGFloat {
         guard steps.count > 1 else { return 0 }
         let clamped = min(max(selectedIndex, 0), steps.count - 1)
-        return CGFloat(clamped) / CGFloat(steps.count - 1)
+        return CGFloat(clamped) / CGFloat(stepCount)
+    }
+
+    /// Blends raw finger position with magnetic attraction toward the snapped step.
+    private var effectiveProgress: CGFloat {
+        guard let raw = liveDragProgress else { return discreteProgress }
+        return raw * 0.72 + discreteProgress * 0.28
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             GeometryReader { geo in
-                let width = max(geo.size.width - thumbSize, 1)
-                let thumbOffset = width * normalizedProgress
+                let usableWidth = max(geo.size.width - thumbSize, 1)
+                let thumbOffset = usableWidth * effectiveProgress
+                let activeTrackHeight: CGFloat = isDragging ? 18 : 14
 
                 ZStack(alignment: .leading) {
-                    // Track background
+                    // Sculpted track background
                     Capsule(style: .continuous)
                         .fill(Color(uiColor: .secondarySystemFill))
-                        .frame(height: trackHeight)
+                        .frame(height: activeTrackHeight)
 
-                    // Active fill
+                    // Active gradient fill
                     Capsule(style: .continuous)
-                        .fill(Color.accentColor)
-                        .frame(width: thumbOffset + thumbSize * 0.5, height: trackHeight)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.accentColor.opacity(0.85), Color.accentColor],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(thumbOffset + thumbSize * 0.5, activeTrackHeight), height: activeTrackHeight)
 
-                    // Step ticks
+                    // Precision step ticks
                     HStack(spacing: 0) {
                         ForEach(steps.indices, id: \.self) { idx in
-                            Circle()
-                                .fill(idx <= selectedIndex ? Color.white.opacity(0.45) : Color.primary.opacity(0.14))
-                                .frame(width: 4, height: 4)
+                            let stepRatio = CGFloat(idx) / CGFloat(stepCount)
+                            let isPassed = stepRatio <= effectiveProgress + 0.005
+                            let isCurrent = idx == selectedIndex
+                            let isMajor = idx == 0 || idx == steps.count - 1 || idx % 3 == 0
+
+                            Capsule(style: .continuous)
+                                .fill(
+                                    isPassed
+                                        ? Color.white.opacity(isCurrent ? 0.9 : 0.45)
+                                        : Color.primary.opacity(isMajor ? 0.22 : 0.12)
+                                )
+                                .frame(
+                                    width: isMajor ? 3 : 2,
+                                    height: isDragging ? (isMajor ? 8 : 5) : (isMajor ? 6 : 4)
+                                )
+
                             if idx < steps.count - 1 {
                                 Spacer(minLength: 0)
                             }
                         }
                     }
-                    .padding(.horizontal, thumbSize * 0.5 - 2)
+                    .padding(.horizontal, thumbSize * 0.5 - 1.5)
 
-                    // Thumb
-                    Circle()
-                        .fill(Color(uiColor: .systemBackground))
-                        .frame(width: thumbSize, height: thumbSize)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(Color.accentColor, lineWidth: isDragging ? 4 : 3)
-                        )
-                        .shadow(color: Color.black.opacity(isDragging ? 0.22 : 0.12), radius: isDragging ? 8 : 4, y: 2)
-                        .scaleEffect(isDragging ? 1.16 : 1.0)
-                        .offset(x: thumbOffset)
+                    // Elevated dual-ring tactile thumb
+                    ZStack {
+                        Circle()
+                            .fill(Color(uiColor: .systemBackground))
+                            .frame(width: thumbSize, height: thumbSize)
+                            .shadow(
+                                color: Color.black.opacity(isDragging ? 0.24 : 0.14),
+                                radius: isDragging ? 10 : 5,
+                                y: isDragging ? 4 : 2
+                            )
+
+                        Circle()
+                            .strokeBorder(Color.accentColor, lineWidth: isDragging ? 3.5 : 2.5)
+                            .frame(width: thumbSize, height: thumbSize)
+
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: isDragging ? 12 : 8, height: isDragging ? 12 : 8)
+                    }
+                    .scaleEffect(isDragging ? 1.14 : 1.0)
+                    .offset(x: thumbOffset)
                 }
                 .frame(height: thumbSize)
                 .contentShape(Rectangle())
@@ -363,36 +416,83 @@ private struct RovieAmountSlider: View {
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
                             if !isDragging {
-                                isDragging = true
+                                withAnimation(.spring(response: 0.24, dampingFraction: 0.7)) {
+                                    isDragging = true
+                                }
                                 selectionFeedback.prepare()
+                                boundaryFeedback.prepare()
                             }
+
                             let x = value.location.x - thumbSize * 0.5
-                            let ratio = min(max(x / width, 0), 1)
-                            let targetIndex = Int(round(ratio * CGFloat(max(steps.count - 1, 1))))
+                            let ratio = min(max(x / usableWidth, 0), 1)
+                            liveDragProgress = ratio
+
+                            let targetIndex = Int(round(ratio * CGFloat(stepCount)))
                             if targetIndex != selectedIndex {
                                 selectedIndex = targetIndex
                                 if targetIndex == 0 || targetIndex == steps.count - 1 {
-                                    boundaryFeedback.impactOccurred(intensity: 0.75)
+                                    boundaryFeedback.impactOccurred(intensity: 0.8)
                                 } else {
                                     selectionFeedback.selectionChanged()
                                 }
                             }
                         }
                         .onEnded { _ in
-                            isDragging = false
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                                liveDragProgress = nil
+                                isDragging = false
+                            }
                         }
                 )
             }
             .frame(height: thumbSize)
 
-            HStack {
-                Text(steps.first?.formatted ?? "")
+            // Tappable bounds + Custom amount link in Rovie Route
+            HStack(alignment: .center) {
+                Button {
+                    guard selectedIndex != 0 else { return }
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                        selectedIndex = 0
+                    }
+                    selectionFeedback.selectionChanged()
+                } label: {
+                    Text(steps.first?.formatted ?? "")
+                        .font(.caption.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+
                 Spacer()
-                Text(steps.last?.formatted ?? "")
+
+                Button(action: onCustomAmount) {
+                    HStack(spacing: 3) {
+                        Text(AppLocalized("Custom amount in Rovie Route"))
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button {
+                    let last = max(steps.count - 1, 0)
+                    guard selectedIndex != last else { return }
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                        selectedIndex = last
+                    }
+                    selectionFeedback.selectionChanged()
+                } label: {
+                    Text(steps.last?.formatted ?? "")
+                        .font(.caption.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
-            .font(.caption.weight(.medium))
-            .monospacedDigit()
-            .foregroundStyle(.tertiary)
         }
     }
 }
